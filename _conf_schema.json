@@ -1,0 +1,37 @@
+{
+    "disabled_name": {
+        "description": "牛牛取名的非法词",
+        "type": "list",
+        "hint": "添加非法词防止一些逆天取名的出现",
+        "default": ["鸡巴","穴","阴茎","乳房","阴户","阴唇","子宫","睾丸","阴蒂","屌","laozhu","老猪","半花琉璃","琉璃","半花"],
+        "obvious_hint": false
+    },
+    "do_self_cooldown": {
+        "description": "打胶/自摸的冷却时间",
+        "type": "int",
+        "hint": "建议设置，单位是：分钟",
+        "default": 10,
+        "obvious_hint": false
+    },
+    "do_other_cooldown": {
+        "description": "锁牛牛/吸猫猫的冷却时间",
+        "type": "int",
+        "hint": "建议设置，单位是：分钟",
+        "default": 5,
+        "obvious_hint": false
+    },
+    "max_work_hours": {
+        "description": "最长打工时长",
+        "type": "int",
+        "hint": "建议设置，单位是：小时",
+        "default": 6,
+        "obvious_hint": false
+    },
+    "coins_per_ten_minute": {
+        "description": "每10分钟打工奖励金币数",
+        "type": "int",
+        "hint": "用于调整金币获取速度",
+        "default": 5,
+        "obvious_hint": false
+    }
+}
