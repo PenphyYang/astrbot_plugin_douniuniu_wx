@@ -9,8 +9,9 @@ from astrbot.core.star.filter.event_message_type import EventMessageType
 from astrbot.core.star.filter.permission import PermissionType
 from data.plugins.astrbot_plugin_douniuniu.core.data_manager import DataManager
 from .core.battle import Battle
+from .core.do_self import DoSelf
 from .core.shop import Shop
-from .core.utils import format_length, is_timestamp_today, random_normal_distribution_int
+from .core.utils import format_length, is_timestamp_today, random_normal_distribution_int, check_cooldown
 
 
 @register("douniuniu", "laozhu", "培养你的牛牛，然后塔塔开！", "0.0.2")
@@ -21,6 +22,7 @@ class DouNiuniuPlugin(Star):
         self.data_manager = DataManager()
         self.battle = Battle()
         self.shop = Shop()
+        self.do_self = DoSelf()
 
     def check_group_enable(self, group_id):
         return self.data_manager.get_group_data(group_id)['plugin_enabled']
@@ -80,7 +82,7 @@ class DouNiuniuPlugin(Star):
                     yield event.plain_result(
                         f"{icon} 你带着深度为{user_data['hole']}cm，敏感度为{user_data['sensitivity']}的{name}加入了本群")
 
-    @filter.command("牛牛排行")
+    @filter.command("牛牛排行",alias={'排行榜','排行'})
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
     async def show_rank(self, event: AstrMessageEvent, n: int = 10):
         """展示本群前n名的牛牛"""
@@ -234,6 +236,7 @@ class DouNiuniuPlugin(Star):
         yield event.plain_result(self.shop.use_rename_card(user_id, name,self.config))
 
     def get_info(self, user_id, user_name):
+        """获取用户信息"""
         text = f'✨✨✨{user_name}的信息✨✨✨\n'
 
         user_data = self.data_manager.get_user_data(user_id)
@@ -414,6 +417,26 @@ class DouNiuniuPlugin(Star):
         current_money = self.data_manager.get_user_data(user_id)['coins']
         yield event.plain_result(f'超能力使用成功，当前持有金币：{current_money}')
 
+    @filter.command("打胶", alias={'导管'})
+    @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
+    async def do_self_niu(self, event: AstrMessageEvent):
+        group_id = event.get_group_id()
+        if not self.check_group_enable(group_id):
+            yield event.plain_result("❌ 牛牛插件未启用")
+            return
+        user_id = event.get_sender_id()
+        if not self.data_manager.get_user_data(user_id):
+            yield event.plain_result(f'❌ 你的牛牛还没出生，输入“/创建牛牛”创建牛牛')
+            return
+        do_self_cd = self.config['do_self_cooldown']
+        user_data = self.data_manager.get_user_data(user_id)
+        can_do,remaining_text = check_cooldown(user_data['time_recording']['do_self'], do_self_cd)
+        if can_do:
+            yield event.plain_result(self.do_self.do_self_niu(group_id, user_id))
+        else:
+            yield event.plain_result(f'❌ 你的牛牛还在贤者模式，cd剩余：{remaining_text}')
+
+
 
     @filter.command_group("配置")
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
@@ -455,6 +478,24 @@ class DouNiuniuPlugin(Star):
         else:
             yield event.plain_result('❌ 该词不在禁用列表')
 
+    @filter.permission_type(PermissionType.ADMIN)
+    @config.command("打胶cd", alias={'导管cd'})
+    async def set_do_self_cd(self, event: AstrMessageEvent, cd: int):
+        """设置打胶/自摸cd"""
+        group_id = event.get_group_id()
+        if not self.check_group_enable(group_id):
+            yield event.plain_result("❌ 牛牛插件未启用")
+            return
+        if cd < 0:
+            yield event.plain_result('❌ 导管cd不能小于0')
+            return
+        original_cd = self.config['do_self_cooldown']
+        if cd == original_cd:
+            yield event.plain_result(f'❌ 打胶cd已是{original_cd}分钟')
+            return
+        self.config['do_self_cooldown'] = cd
+        self.config.save_config()
+        yield event.plain_result(f'✅ 打胶cd设置成功：{cd}分钟')
 
     async def terminate(self):
         """可选择实现 terminate 函数，当插件被卸载/停用时会调用。"""

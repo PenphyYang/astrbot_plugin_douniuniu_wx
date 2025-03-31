@@ -88,7 +88,7 @@ class DataManager:
         """加入/更新排行榜"""
         rank = self.get_group_rank_all(group_id)
         user_data = self.get_user_data(user_id)
-        score = user_data['length'] + user_data['hardness']
+        score = round(user_data['length'] * 0.3 + user_data['hardness'] *0.7, 2)
 
         rank[str(user_id)] = [str(user_name), score]
         self.save_group_rank(group_id, rank)
@@ -177,7 +177,6 @@ class DataManager:
         self.save_user_data(user_id, init_user_data)
         # 加入排行榜
         self.update_rank(group_id, user_id, user_name)
-        print(message)
         return message, init_length, init_hardness
 
     def delete_user(self, user_id: str):
@@ -207,11 +206,14 @@ class DataManager:
             group_data['plugin_enabled'] = enabled
             self.save_group_data(group_id, group_data)
 
-    def set_items(self, user_id, item_name, item_value):
-        """修改道具参数"""
-        uer_data = self.get_user_data(user_id)
-        uer_data['items'][item_name] = item_value
-        self.save_user_data(user_id, uer_data)
+    def set_value(self, user_id, item_path:list, item_value:Any):
+        """修改属性参数"""
+        user_data = self.get_user_data(user_id)
+        if len(item_path) == 1:
+            user_data[item_path[0]] = item_value
+        elif len(item_path) == 2:
+            user_data[item_path[0]][item_path[1]] = item_value
+        self.save_user_data(user_id, user_data)
 
     def set_niuniu_name(self, user_id, niuniu_name: str) -> bool:
         user_data = self.get_user_data(user_id)
@@ -239,7 +241,7 @@ class DataManager:
         user_name = self.get_group_rank_all(group_id)[user_id][0]
         self.update_rank(group_id, user_id, user_name)
         # 返回实际增加长度
-        return format_length(str(length))
+        return length
 
     def del_length(self, group_id, user_id, length: int):
         """减少长度"""
@@ -302,3 +304,9 @@ class DataManager:
             self.save_user_data(user_id, user_data)
             return True
         return False
+
+    def use_item(self,user_id,item_path:list,num:int=1):
+        user_data = self.get_user_data(user_id)
+        if len(item_path)==2:
+            user_data[item_path[0]][item_path[1]] -= num
+            self.save_user_data(user_id, user_data)

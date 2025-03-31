@@ -1,5 +1,6 @@
 import json
 import random
+import time
 from datetime import datetime
 
 
@@ -83,3 +84,37 @@ def is_timestamp_today(timestamp: float) -> bool:
         # 处理非法时间戳（如None、字符串、超出范围的值）
         print('处理时间戳失败')
         return False
+
+
+def check_cooldown(start_timestamp: float, cd: float) -> tuple[bool, str]:
+    """
+    检查冷却时间是否结束
+    :param start_timestamp: 开始时间戳(秒级，如 time.time() 的返回值)
+    :param cd: 冷却时长(秒)
+    :return: (是否结束, 剩余时间)
+            结束返回 (True, 0.0)
+            未结束返回 (False, 剩余秒数)
+    """
+    current_time = time.time()
+    elapsed = current_time - start_timestamp
+    remaining = cd - elapsed
+    if remaining < 60:
+        text = f"{int(remaining)}秒"
+    else:
+        mins, secs = divmod(int(remaining), 60)
+        text = f"{mins:02d}分{secs:02d}秒"
+
+    if remaining <= 0:
+        return True, text
+    else:
+        return False, text  # 保留两位小数
+
+
+def get_add_text(true_add, original_add, uer_niuniu_name, user_data) -> str:
+    text = ''
+    if true_add < original_add:
+        text += f"📏 {uer_niuniu_name}的长度在被寄生虫蚕食后增加了{true_add}cm，当前长度：{format_length(user_data['length'])}\n"
+        text += f'各寄生虫窃取到了{true_add}cm，回馈到主人的牛牛中\n'
+    else:
+        text += f"📏 {uer_niuniu_name}的长度增加{true_add}cm，当前长度：{format_length(user_data['length'])}\n"
+    return text
