@@ -9,7 +9,7 @@ from data.plugins.astrbot_plugin_douniuniu.core.utils import probabilistic_decis
 class Battle:
     def __init__(self):
         self.data_manager = DataManager()
-        self.record_breaking_reward = 50  # 每级破纪录递增收益数
+        self.record_breaking_reward = 10  # 每级破纪录递增收益数
 
     def niu_vs_niu_win_prob(self, user1_id, user2_id):
         """
@@ -38,8 +38,11 @@ class Battle:
             return 'user1', power_diff
         base_prob = 1 / (1 + math.exp(-power_diff * 0.5))  # 0.5控制曲线陡峭度
 
-        # 引入随机扰动保障弱者机会（±15%波动）
-        random_factor = random.uniform(-0.15, 0.15)
+        # 引入随机扰动保障弱者机会
+        if power_diff > 0:
+            random_factor = random.uniform(-0.40, 0.0)
+        else:
+            random_factor = random.uniform(0.0, 0.40)
         final_prob = max(0.1, min(0.9, base_prob + random_factor))  # 锁定10%~90%胜率
 
         # 平局概率（双方战斗力越接近，平局概率越高）
@@ -62,8 +65,8 @@ class Battle:
         # 获取名称
         user1_niuniu_name = user1_data['niuniu_name']
         user2_niuniu_name = user2_data['niuniu_name']
-        user1_name = self.data_manager.get_group_rank_all(group_id)[user1_id][0]
-        user2_name = self.data_manager.get_group_rank_all(group_id)[user2_id][0]
+        user1_name = user1_data['user_name']
+        user2_name = user2_data['user_name']
         # 计算战斗结果
         winner, power_diff = self.niu_vs_niu_win_prob(user1_id, user2_id)
         text = ''
@@ -76,18 +79,17 @@ class Battle:
                 text += "📢 俩牛牛不打不相识，这场战斗让双方都获得了成长\n\n"
                 user1_add = random_normal_distribution_int(1, 6, 2)
                 user1_true_add = self.data_manager.add_length(group_id, user1_id, user1_add)
-                text += get_add_text(user1_true_add,user1_add,user1_niuniu_name,self.data_manager.get_user_data(user1_id))
+                text += get_add_text(user1_true_add,user1_add,self.data_manager.get_user_data(user1_id))
 
                 user2_add = random_normal_distribution_int(1, 6, 2)
                 user2_true_add = self.data_manager.add_length(group_id, user2_id, user2_add)
-                text += get_add_text(user2_true_add, user2_add, user2_niuniu_name,
-                                     self.data_manager.get_user_data(user2_id))
+                text += get_add_text(user2_true_add, user2_add,self.data_manager.get_user_data(user2_id))
             elif random_num < 0.4:
                 text += "📢 双方的牛牛即使激战过后依然缠绕在一起，强制分开导致长度减半\n\n"
                 user1_del = int(user1_data['length'] / 2)
                 user2_del = int(user2_data['length'] / 2)
-                self.data_manager.del_length(group_id, user1_id, user1_del)
-                self.data_manager.del_length(group_id, user2_id, user2_del)
+                self.data_manager.del_length( user1_id, user1_del)
+                self.data_manager.del_length( user2_id, user2_del)
                 text += f"📏 {user1_niuniu_name}的长度减少{user1_del}cm\n"
                 text += f"📏 {user2_niuniu_name}的长度减少{user2_del}cm\n"
             elif random_num < 0.6:
@@ -95,7 +97,7 @@ class Battle:
                 loser_name = user1_niuniu_name if loser_id == user1_id else user2_niuniu_name
                 text += f"📢 {loser_name}不愿承认平局，对自己的长度产生了自我怀疑\n\n"
                 loser_del = random_normal_distribution_int(1, 6, 1)
-                self.data_manager.del_length(group_id, loser_id, loser_del)
+                self.data_manager.del_length( loser_id, loser_del)
                 text += f"📏 {loser_name}的长度减少{loser_del}cm\n"
             else:
                 text += "📢 之后无事发生，下一次再见面想必又会有一场厮杀吧\n"
@@ -134,11 +136,10 @@ class Battle:
             # 后续
             winner_add_length = random_normal_distribution_int(1, 6, 1)
             winner_ture_add = self.data_manager.add_length(group_id, winner_id, winner_add_length)
-            text += get_add_text(winner_ture_add, winner_add_length, winner_name,
-                                 self.data_manager.get_user_data(winner_id))
+            text += get_add_text(winner_ture_add, winner_add_length,self.data_manager.get_user_data(winner_id))
 
             loser_del_length = random_normal_distribution_int(1, 6, 1)
-            self.data_manager.del_length(group_id, loser_id, loser_del_length)
+            self.data_manager.del_length( loser_id, loser_del_length)
             text += f"📏 {loser_name}的长度减少{loser_del_length}cm，当前长度：{format_length(self.data_manager.get_user_data(loser_id)['length'])}\n"
             # 结算收益
             winner_add_coins = random_normal_distribution_int(1, 21, 2)
@@ -161,7 +162,7 @@ class Battle:
                 text += f"📏 {winner_name}劣势获胜，长度暴增{winner_ture_add}cm，当前长度：{format_length(self.data_manager.get_user_data(winner_id)['length'])}\n"
 
             loser_del_length = random_normal_distribution_int(10, 21, 1)
-            self.data_manager.del_length(group_id, loser_id, loser_del_length)
+            self.data_manager.del_length( loser_id, loser_del_length)
             text += f"📏 {loser_name}优势落败，长度骤减{loser_del_length}cm，当前长度：{format_length(self.data_manager.get_user_data(loser_id)['length'])}\n"
 
             # 结算收益
@@ -174,16 +175,21 @@ class Battle:
         # 结算连胜
         if self.data_manager.reset_win_count(loser_id):
             text += f"😱 {winner_name}终结了{loser_name}的{loser_data['current_win_count']}连胜，{winner_name}会成为下一个牛牛魔王吗？\n"
+            if loser_data['current_win_count'] > 5:
+                reward = random_normal_distribution_int(100, 151, 2)
+                self.data_manager.add_coins(winner_id, reward)
+                text += f"😈 {winner_name}的壮举受到了牛牛魔王的注意，额外获得{reward}个金币\n"
         # 如果破纪录
         if self.data_manager.update_win_count(winner_id):
             text += f"😈 {winner_name}取得了{self.data_manager.get_user_data(winner_id)['current_win_count']}连胜，打破了自己的最高连胜记录！\n"
             # 破纪录收益
             reward = self.data_manager.get_user_data(winner_id)['current_win_count'] * self.record_breaking_reward
-            text += f"💰 由于打破了最高记录，获得了{reward}个金币，下一级收益：{reward + self.record_breaking_reward}\n"
+            self.data_manager.add_coins(winner_id, reward)
+            text += f"💰 {winner_name}由于打破了最高记录，额外获得了{reward}个金币，下一级收益：{reward + self.record_breaking_reward}\n"
         user1_data = self.data_manager.get_user_data(user1_id)
         current_win_count = user1_data['current_win_count']
         win_count = user1_data['win_count']
-        text += f'⚔ 当前连胜：{current_win_count} | 最高连胜：{win_count}'
+        text += f'⚔ {user1_name}当前连胜：{current_win_count} | 最高连胜：{win_count}'
         return text
 
     def niu_vs_hole(self, group_id, user1_id, user2_id) -> str:

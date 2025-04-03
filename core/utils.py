@@ -63,7 +63,7 @@ def probabilistic_decision(probability: float) -> bool:
     """
     if not 0.0 <= probability <= 1.0:
         raise ValueError("概率必须在 0.0 到 1.0 之间")
-    return random.random() < probability
+    return random.random() <= probability
 
 
 def is_timestamp_today(timestamp: float) -> bool:
@@ -110,11 +110,11 @@ def check_cooldown(start_timestamp: float, cd: float) -> tuple[bool, str]:
         return False, text  # 保留两位小数
 
 
-def get_add_text(true_add, original_add, uer_niuniu_name, user_data) -> str:
+def get_add_text(true_add, original_add, user_data) -> str:
     text = ''
     if true_add < original_add:
-        text += f"📏 {uer_niuniu_name}的长度在被寄生虫蚕食后增加了{true_add}cm，当前长度：{format_length(user_data['length'])}\n"
-        text += f'各寄生虫窃取到了{true_add}cm，回馈到主人的牛牛中\n'
+        text += f"📏 {user_data['niuniu_name']}的长度在被寄生虫蚕食后增加了{true_add}cm，当前长度：{format_length(user_data['length'])}\n"
+        text += f'🐛 各寄生虫窃取到了{true_add}cm，回馈到主人的牛牛中\n'
     else:
-        text += f"📏 {uer_niuniu_name}的长度增加{true_add}cm，当前长度：{format_length(user_data['length'])}\n"
+        text += f"📏 {user_data['niuniu_name']}的长度增加{true_add}cm，当前长度：{format_length(user_data['length'])}\n"
     return text

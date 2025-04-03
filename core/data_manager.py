@@ -18,6 +18,10 @@ class DataManager:
             "groups": {},
             "users": {}
         }
+        self.min_length = 1
+        self.max_length = 10
+        self.min_hardness = 1
+        self.max_hardness = 10
 
     def _ensure_file_exists(self):
         """确保必要文件存在"""
@@ -60,6 +64,16 @@ class DataManager:
 
         return data["groups"][group_id]
 
+    def get_all_group_data(self) -> Dict[str, Any]:
+        """获取所有群数据"""
+        data = self.load_all_data()
+        return data["groups"]
+
+    def get_all_user_data(self) -> Dict[str, Any]:
+        """获取所有用户数据"""
+        data = self.load_all_data()
+        return data["users"]
+
     def save_group_data(self, group_id: str, group_data: Dict[str, Any]):
         """保存群数据"""
         data = self.load_all_data()
@@ -84,14 +98,24 @@ class DataManager:
         group_data['rank'] = rank_data
         self.save_group_data(group_id, group_data)
 
-    def update_rank(self, group_id, user_id, user_name):
+    def update_rank(self, user_id):
         """加入/更新排行榜"""
-        rank = self.get_group_rank_all(group_id)
         user_data = self.get_user_data(user_id)
+        user_name = user_data['user_name']
         score = round(user_data['length'] * 0.3 + user_data['hardness'] *0.7, 2)
+        in_group_list = user_data['in_group']
+        # 统一所有组数据
+        for group in in_group_list:
+            rank = self.get_group_rank_all(group)
+            rank[str(user_id)] = [str(user_name), score]
+            self.save_group_rank(group, rank)
 
-        rank[str(user_id)] = [str(user_name), score]
-        self.save_group_rank(group_id, rank)
+    def add_in_group(self,user_id,group_id):
+        """加入新群到user_data"""
+        user_data = self.get_user_data(user_id)
+        if group_id not in user_data['in_group']:
+            user_data['in_group'].append(str(group_id))
+            self.save_user_data(user_id, user_data)
 
     def get_user_data(self, user_id: str) -> Dict[str, Any]:
         """获取用户数据（不存在时返回空字典）"""
@@ -106,10 +130,12 @@ class DataManager:
 
     def create_user(self, group_id: str, user_id: str, user_name: str):
         """创建一个初始化牛牛"""
-        min_length = 1
-        max_length = 10
+        min_length = self.min_length
+        max_length = self.max_length
+        min_hardness = self.min_hardness
+        max_hardness = self.max_hardness
         init_length = random_normal_distribution_int(min_length, max_length + 1, 1)
-        init_hardness = random_normal_distribution_int(min_length, max_length + 1, 1)
+        init_hardness = random_normal_distribution_int(min_hardness, max_hardness + 1, 1)
 
         if init_length / (max_length - min_length + 1) < 0.3:
             message = '😑 长度好短，牛牛从小就自卑\n'
@@ -118,15 +144,16 @@ class DataManager:
         else:
             message = '😍 长度超长！牛牛犹如天牛下凡\n'
 
-        if init_hardness / (max_length - min_length + 1) < 0.3:
+        if init_hardness / (max_hardness - min_hardness + 1) < 0.3:
             message += '😑 硬度好软，牛牛从小体弱多病'
-        elif init_hardness / (max_length - min_length + 1) <= 0.6:
+        elif init_hardness / (max_hardness - min_hardness + 1) <= 0.6:
             message += '🤨 硬度资质平平，牛牛能直立行走'
         else:
             message += '😍 硬度超硬！牛牛硬的像根钢管'
 
         init_user_data = {
             "niuniu_name": f'{user_name}的牛牛',
+            "user_name": user_name,
             "length": init_length,
             "coins": 0,
             "hardness": init_hardness,
@@ -134,6 +161,7 @@ class DataManager:
             "sensitivity": 0,  # 敏感度
             "win_count": 0,  # 历史连胜最高次数
             "current_win_count": 0,  # 当前连胜最高次数
+            "in_group": [group_id],  # 在哪些群
             'items': {
                 # 道具状态
                 'viagra': 0,  # 伟哥剩余次数
@@ -176,7 +204,7 @@ class DataManager:
         # 保存数据
         self.save_user_data(user_id, init_user_data)
         # 加入排行榜
-        self.update_rank(group_id, user_id, user_name)
+        self.update_rank(user_id)
         return message, init_length, init_hardness
 
     def delete_user(self, user_id: str):
@@ -238,40 +266,36 @@ class DataManager:
         self.save_user_data(user_id, user_data)
 
         # 更新排行榜
-        user_name = self.get_group_rank_all(group_id)[user_id][0]
-        self.update_rank(group_id, user_id, user_name)
+        self.update_rank(user_id)
         # 返回实际增加长度
         return length
 
-    def del_length(self, group_id, user_id, length: int):
+    def del_length(self, user_id, length: int):
         """减少长度"""
         user_data = self.get_user_data(user_id)
         user_data['length'] = max(1, user_data['length'] - length)
         self.save_user_data(user_id, user_data)
 
         # 更新排行榜
-        user_name = self.get_group_rank_all(group_id)[user_id][0]
-        self.update_rank(group_id, user_id, user_name)
+        self.update_rank(user_id)
 
-    def add_hardness(self, group_id, user_id, hardness: int):
+    def add_hardness(self, user_id, hardness: int):
         """增加硬度"""
         user_data = self.get_user_data(user_id)
         user_data['hardness'] += hardness
         self.save_user_data(user_id, user_data)
 
         # 更新排行榜
-        user_name = self.get_group_rank_all(group_id)[user_id][0]
-        self.update_rank(group_id, user_id, user_name)
+        self.update_rank(user_id)
 
-    def del_hardness(self, group_id, user_id, hardness: int):
+    def del_hardness(self, user_id, hardness: int):
         """减少硬度"""
         user_data = self.get_user_data(user_id)
         user_data['hardness'] = max(1, user_data['hardness'] - hardness)
         self.save_user_data(user_id, user_data)
 
         # 更新排行榜
-        user_name = self.get_group_rank_all(group_id)[user_id][0]
-        self.update_rank(group_id, user_id, user_name)
+        self.update_rank(user_id)
 
     def add_coins(self, user_id, coins: int):
         """增加金币"""
@@ -306,7 +330,38 @@ class DataManager:
         return False
 
     def use_item(self,user_id,item_path:list,num:int=1):
+        """使用道具，并返回是否使用成功"""
         user_data = self.get_user_data(user_id)
         if len(item_path)==2:
-            user_data[item_path[0]][item_path[1]] -= num
-            self.save_user_data(user_id, user_data)
+            if user_data[item_path[0]][item_path[1]]>= num:
+                user_data[item_path[0]][item_path[1]] -= num
+                self.save_user_data(user_id, user_data)
+                return True
+            else:
+                return False
+
+    def add_drone(self,user1_id,user2_id, num) -> int:
+        """user1向user2使用寄生虫，返回寄生虫计数"""
+        user1_data = self.get_user_data(user1_id)
+        user2_data = self.get_user_data(user2_id)
+        for _ in range(num):
+            user2_data['items']['drone'].append(user1_id)
+        user1_data['items_num']['牛牛寄生虫'] -= num
+        self.save_user_data(user1_id, user1_data)
+        self.save_user_data(user2_id, user2_data)
+
+        return user2_data['items']['drone'].count(user1_id)
+
+    def remove_drone(self,user_id, num):
+        """user移除身上num个寄生虫"""
+        user_data = self.get_user_data(user_id)
+        exist_drone = user_data['items']['drone']
+        if num == len(exist_drone):
+            user_data['items']['drone'] = []
+        elif num > len(exist_drone):
+            print("传入删除个数大于寄生虫列表长度")
+            user_data['items']['drone'] = []
+        else:
+            user_data['items']['drone'] = user_data['items']['drone'][num:]
+        user_data['items_num']['杀虫剂'] -= num
+        self.save_user_data(user_id, user_data)

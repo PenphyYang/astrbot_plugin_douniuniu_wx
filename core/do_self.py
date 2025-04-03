@@ -58,7 +58,7 @@ class DoSelf:
         text = ''
         # 使用伟哥打胶
         if user_data['items']['viagra'] > 0:
-            add_length = random_normal_distribution_int(10, 21, 1)
+            add_length = random_normal_distribution_int(1, 11, 1)
             true_add = self.data_manager.add_length(group_id, user_id, add_length)
             self.data_manager.use_item(user_id, ['items', 'viagra'])
             user_data = self.data_manager.get_user_data(user_id)
@@ -70,11 +70,7 @@ class DoSelf:
             else:
                 text += f'💊 伟哥使用成功，剩余{remain_times}次'
 
-            if true_add < add_length:
-                text += f"📏 {niuniu_name}长度在被寄生虫蚕食后增加了{true_add}，当前长度：{format_length(user_data['length'])}\n"
-                text += f'各寄生虫窃取到了{true_add}，回馈到主人的牛牛中\n'
-            else:
-                text += f"📏 {niuniu_name}长度增加了{true_add}，当前长度：{format_length(user_data['length'])}\n"
+            text += get_add_text(true_add, add_length, user_data)
             return text
         # 无伟哥
         result = random.choices(
@@ -88,36 +84,36 @@ class DoSelf:
             # 修改对应参数
             del_hardness = random_normal_distribution_int(1, 4, 1)
             add_length = int(del_hardness * (1 + random.random()))
-            self.data_manager.del_hardness(group_id, user_id, del_hardness)
+            self.data_manager.del_hardness(user_id, del_hardness)
             true_add = self.data_manager.add_length(group_id, user_id, add_length)
             user_data = self.data_manager.get_user_data(user_id)
-            text += get_add_text(true_add, add_length, niuniu_name, user_data)
+            text += get_add_text(true_add, add_length, user_data)
             now_hardness = user_data['hardness']
-            text += f"💪 {niuniu_name}的硬度减少{del_hardness}级，当前硬度：{now_hardness}\n"
+            text += f"💪 {niuniu_name}的硬度减少{del_hardness}级，当前硬度：{now_hardness}级\n"
         elif result == '增加双属性':
             add_hardness = random_normal_distribution_int(1, 4, 1)
-            self.data_manager.add_hardness(group_id,user_id,add_hardness)
+            self.data_manager.add_hardness(user_id, add_hardness)
             add_length = random_normal_distribution_int(1, 11, 2)
             true_add = self.data_manager.add_length(group_id, user_id, add_length)
             user_data = self.data_manager.get_user_data(user_id)
-            text += get_add_text(true_add, add_length, niuniu_name, user_data)
+            text += get_add_text(true_add, add_length, user_data)
             now_hardness = user_data['hardness']
-            text += f"💪 {niuniu_name}的硬度增加{add_hardness}级，当前硬度：{now_hardness}\n"
+            text += f"💪 {niuniu_name}的硬度增加{add_hardness}级，当前硬度：{now_hardness}级\n"
         elif result == '无变化':
             text += f'🈚 {niuniu_name}的长度和硬度均没发生变化'
         elif result == '减少长度硬度不变':
             del_length = random_normal_distribution_int(1, 11, 2)
-            self.data_manager.del_length(group_id, user_id, del_length)
+            self.data_manager.del_length(user_id, del_length)
             user_data = self.data_manager.get_user_data(user_id)
             text += f"📏 {niuniu_name}的长度减少了{del_length}cm，当前长度：{format_length(user_data['length'])}\n"
             text += f'💪 {niuniu_name}的硬度没有发生变化'
         elif result == '减少双属性':
             del_length = random_normal_distribution_int(1, 11, 2)
             del_hardness = random_normal_distribution_int(1, 4, 1)
-            self.data_manager.del_hardness(group_id, user_id, del_hardness)
-            self.data_manager.del_length(group_id, user_id, del_length)
+            self.data_manager.del_hardness(user_id, del_hardness)
+            self.data_manager.del_length(user_id, del_length)
             user_data = self.data_manager.get_user_data(user_id)
             text += f"📏 {niuniu_name}的长度减少了{del_length}cm，当前长度：{format_length(user_data['length'])}\n"
-            text += f"💪 {niuniu_name}的硬度减少了{del_hardness}级，当前硬度：{format_length(user_data['hardness'])}\n"
+            text += f"💪 {niuniu_name}的硬度减少了{del_hardness}级，当前硬度：{user_data['hardness']}级\n"
 
         return text
