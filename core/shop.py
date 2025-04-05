@@ -1,7 +1,11 @@
 import random
+import time
 
 from data.plugins.astrbot_plugin_douniuniu.core.data_manager import DataManager
-from data.plugins.astrbot_plugin_douniuniu.core.utils import probabilistic_decision, get_add_text
+from data.plugins.astrbot_plugin_douniuniu.core.do_other import DoOther
+from data.plugins.astrbot_plugin_douniuniu.core.do_self import DoSelf
+from data.plugins.astrbot_plugin_douniuniu.core.utils import probabilistic_decision, get_add_text, check_cooldown, \
+    timestamp_to_hhmm, format_length
 
 
 class Shop:
@@ -24,9 +28,9 @@ class Shop:
                 "description": "获得一次正规医院的牛牛手术机会，70%概率长度翻倍，30%概率长度减半"},
             7: {"name": "六味地黄丸", "price": 100, "description": "下次由你主动发起的比划必胜"},
             8: {"name": "负重沙袋", "price": 100,
-                "description": "一个可以使用24h，能给牛牛增加负重的道具，期间锻炼效率翻倍"},
+                "description": "一个可以使牛牛下次锻炼效率翻倍的道具"},
             9: {"name": "会跳的蛋", "price": 100,
-                "description": "一个可以使用24h，能给猫猫增加负担的道具，期间锻炼效率翻倍"},
+                "description": "一个可以使猫猫下次锻炼效率翻倍的道具"},
             10: {"name": "性转针筒", "price": 100,
                  "description": "一针下去24h内牛牛将暂时缩腹为猫，期间打工金币翻倍，再次使用将变回牛牛"},
             11: {"name": "牛牛转换器", "price": 500,
@@ -40,27 +44,34 @@ class Shop:
                  "description": "24小时内目标用户牛牛增长的长度会被你窃取，对方寄生虫越多窃取越少"},
             16: {"name": "改名卡", "price": 50, "description": "修改牛牛的名字，名字需要在5个字以内"},
             17: {"name": "商店8折优惠券", "price": 100, "description": "使用后接下来5分钟商店所有商品将对你打8折"},
-            18: {"name": "杀虫剂", "price": 50, "description": "使用后去掉一只牛牛寄生虫"},
+            18: {"name": "杀虫剂", "price": 40, "description": "使用后去掉一只牛牛寄生虫"},
         }
+        self.do_self = DoSelf()
+        self.do_other = DoOther()
 
     def get_items(self, user_id) -> str:
         """获取所有商品的打印信息"""
         text = "🏬 牛牛商城 🏪\n"
         for key, value in self.items.items():
             text += f"🛒 {key}. {value['name']} 💰️ {value['price']}\n"
-            text += f"     {value['description']}\n"
+            text += f"      {value['description']}\n"
         money = self.data_manager.get_user_data(user_id)['coins']
         text += f'👛 持有金币：{money}\n'
         text += '发送“/购买 编号 数量”购买对应道具，不填数量将默认买1个'
         return text
 
     def purchase(self, user_id, item_id, num) -> str:
+        """购买道具"""
         if item_id > len(self.items) or item_id < 1:
             return f'✅ 商品编号错误，编号范围在1~{len(self.items)}'
 
         user_data = self.data_manager.get_user_data(user_id)
         user_money = user_data['coins']
-        need_money = self.items[item_id]['price'] * num
+        # 判断八折优惠券
+        if user_data['items']['20off']:
+            need_money = int(self.items[item_id]['price'] * num * 0.8)
+        else:
+            need_money = self.items[item_id]['price'] * num
         if user_money < need_money:
             return f'❌ 当前持有金币：{user_money}，需要{need_money}金币才能购买{num}个{self.items[item_id]["name"]}'
 
@@ -163,7 +174,7 @@ class Shop:
         is_add = probabilistic_decision(success_prob)
         self.data_manager.use_item(user_id, ['items_num', item])
         if is_add:
-            add_length = user_data['length'] * 2
+            add_length = user_data['length']
             true_add = self.data_manager.add_length(group_id, user_id, add_length)
             text += f"🏥 手术成功\n"
             text += get_add_text(true_add, add_length, user_data)
@@ -171,7 +182,7 @@ class Shop:
             del_length = int(user_data['length'] / 2)
             self.data_manager.del_length(user_id, del_length)
             text += f"🏥 手术失败\n"
-            text += f"📏 {user_data['niuniu_name']}长度减半，当前长度：{self.data_manager.get_user_data(user_id)['length']}"
+            text += f"📏 {user_data['niuniu_name']}长度减半，当前长度：{format_length(self.data_manager.get_user_data(user_id)['length'])}"
         return text
 
     def use_cassette(self, user_id) -> str:
@@ -199,7 +210,7 @@ class Shop:
         self.data_manager.save_user_data(user_id, user_data)
         return text
 
-    def use_exchange_niu(self,user1_id,user2_id)->str:
+    def use_exchange_niu(self, user1_id, user2_id) -> str:
         """交换牛牛"""
         # 判断是否存在道具
         user1_data = self.data_manager.get_user_data(user1_id)
@@ -211,9 +222,9 @@ class Shop:
         # 使用道具
         user1_data['items_num'][item] -= 1
         user2_data = self.data_manager.get_user_data(user2_id)
-        user2_score = round(user2_data['length'] * 0.3 + user2_data['hardness'] * 0.7,2)
-        user1_score = round(user1_data['length'] * 0.3 + user1_data['hardness'] * 0.7,2)
-        if user1_score*(1-self.exchange_realm)<=user2_score<=user1_score*(1+self.exchange_realm):
+        user2_score = round(user2_data['length'] * 0.3 + user2_data['hardness'] * 0.7, 2)
+        user1_score = round(user1_data['length'] * 0.3 + user1_data['hardness'] * 0.7, 2)
+        if user1_score * (1 - self.exchange_realm) <= user2_score <= user1_score * (1 + self.exchange_realm):
             temp_data = user2_data.copy()
             user2_data['length'] = user1_data['length']
             user2_data['hardness'] = user1_data['hardness']
@@ -224,12 +235,12 @@ class Shop:
             # 更新排行榜
             self.data_manager.update_rank(user1_id)
             self.data_manager.update_rank(user2_id)
-            text+=f"✅ 牛牛交换成功"
+            text += f"✅ 牛牛交换成功\n"
         else:
-            text += f"❌ 交换对象的评分需要再{user1_score*(1-self.exchange_realm)}~{user1_score*(1+self.exchange_realm)}之间"
+            text += f"❌ 交换对象的评分需要在{round(user1_score * (1 - self.exchange_realm),2)}~{round(user1_score * (1 + self.exchange_realm),2)}之间"
         return text
 
-    def use_exchange_mao(self,user1_id,user2_id)->str:
+    def use_exchange_mao(self, user1_id, user2_id) -> str:
         """交换猫猫"""
         # 判断是否存在道具
         user1_data = self.data_manager.get_user_data(user1_id)
@@ -243,7 +254,7 @@ class Shop:
         user2_data = self.data_manager.get_user_data(user2_id)
         user2_score = round(user2_data['hole'] * 0.3 + user2_data['sensitivity'] * 0.7, 2)
         user1_score = round(user1_data['hole'] * 0.3 + user1_data['sensitivity'] * 0.7, 2)
-        if user1_score*(1-self.exchange_realm)<=user2_score<=user1_score*(1+self.exchange_realm):
+        if user1_score * (1 - self.exchange_realm) <= user2_score <= user1_score * (1 + self.exchange_realm):
             temp_data = user2_data.copy()
             user2_data['hole'] = user1_data['hole']
             user2_data['sensitivity'] = user1_data['sensitivity']
@@ -251,26 +262,29 @@ class Shop:
             user1_data['sensitivity'] = temp_data['sensitivity']
             self.data_manager.save_user_data(user1_id, user1_data)
             self.data_manager.save_user_data(user2_id, user2_data)
-            #无需更新排行榜
-            text += f"✅ 猫猫交换成功"
+            # 无需更新排行榜
+            text += f"✅ 猫猫交换成功\n"
         else:
-            text += f"❌ 交换对象的评分需要再{user1_score*(1-self.exchange_realm)}~{user1_score*(1+self.exchange_realm)}之间"
+            text += f"❌ 交换对象的评分需要在{user1_score * (1 - self.exchange_realm)}~{user1_score * (1 + self.exchange_realm)}之间"
         return text
 
-    def use_viagra(self,user_id):
+    def use_viagra(self, user_id,num) -> str:
         """使用伟哥"""
         # 判断是否存在道具
         user_data = self.data_manager.get_user_data(user_id)
         text = ''
         item = '伟哥'
-        if user_data['items_num'][item] < 1:
-            text += f"❌ 你没有“{item}”，输入“/牛牛商城”查看购买\n"
+        if user_data['items_num'][item] < num:
+            text += f"❌ 你的“{item}”不足{num}个，输入“/牛牛商城”查看购买\n"
             return text
         # 使用道具
-        user_data['items_num'][item] -= 1
-        pass
+        user_data['items_num'][item] -= num
+        user_data['items']['viagra'] += self.viagra_times * num
+        self.data_manager.save_user_data(user_id, user_data)
+        text += f"✅ 使用成功，当前剩余伟哥次数：{user_data['items']['viagra']}\n"
+        return text
 
-    def use_mushroom(self,user_id):
+    def use_mushroom(self, group_id, user_id,do_self_cd)->str:
         """使用迷幻菌子"""
         # 判断是否存在道具
         user_data = self.data_manager.get_user_data(user_id)
@@ -281,9 +295,31 @@ class Shop:
             return text
         # 使用道具
         user_data['items_num'][item] -= 1
-        pass
+        # 具体使用逻辑
+        rank_all = self.data_manager.get_group_rank_all(group_id)
+        can_do_self_list = []
+        for other_user_id in rank_all:
+            other_data = self.data_manager.get_user_data(other_user_id)
+            if check_cooldown(other_data['time_recording']['do_self'],do_self_cd)[0]:
+                if other_user_id != user_id:
+                    can_do_self_list.append(other_user_id)
+        if len(can_do_self_list) == 0:
+            text += '❌ 本群没有人可以打胶/自摸\n'
+            return text
+        if len(can_do_self_list) < 5:
+            text += '⚠️ 本群可以打胶/自摸人数不足5人\n'
+        text += '\n'
+        for can_do_id in can_do_self_list:
+            text += f'👻 使用了{self.data_manager.get_user_data(can_do_id)["user_name"]}的机会\n'
+            if not user_data['items']['transfer']:
+                text += self.do_self.do_self_niu_mushroom(group_id,user_id,can_do_id)
+            else:
+                text += self.do_self.do_self_mao_mushroom(group_id,user_id,can_do_id)
+            text += '\n'
+        return text
 
-    def use_aphrodisiac(self,user_id):
+
+    def use_aphrodisiac(self,group_id, user_id,do_other_cd)->str:
         """使用春天的药"""
         # 判断是否存在道具
         user_data = self.data_manager.get_user_data(user_id)
@@ -294,35 +330,78 @@ class Shop:
             return text
         # 使用道具
         user_data['items_num'][item] -= 1
-        pass
+        # 具体逻辑
+        rank_all = self.data_manager.get_group_rank_all(group_id)
+        can_do_other_list = []
+        for other_user_id in rank_all:
+            other_data = self.data_manager.get_user_data(other_user_id)
+            if check_cooldown(other_data['time_recording']['do_other'], do_other_cd)[0]:
+                if other_user_id != user_id:
+                    can_do_other_list.append(other_user_id)
+        if len(can_do_other_list) == 0:
+            text += '❌ 本群没有人可以锁牛牛/吸猫猫\n'
+            return text
+        if len(can_do_other_list) < 5:
+            text += '⚠️ 本群可以锁牛牛/吸猫猫人数不足5人\n'
+        text += '\n'
+        for can_do_id in can_do_other_list:
+            text += f'👻 使用了{self.data_manager.get_user_data(can_do_id)["user_name"]}的机会\n'
+            if not user_data['items']['transfer']:
+                text += self.do_other.do_other_niu(group_id,can_do_id,user_id,do_other_cd)
+            else:
+                text += self.do_other.do_other_mao(group_id,user_id,can_do_id,do_other_cd)
+            text += '\n'
+        return text
 
-    def use_sandbag(self,user_id):
+
+    def use_sandbag(self, user_id) -> str:
         """使用负重沙袋"""
         # 判断是否存在道具
         user_data = self.data_manager.get_user_data(user_id)
         text = ''
         item = '负重沙袋'
+        if user_data['items']['transfer']:
+            text += f"❌ 你现在是美少女哦，无法使用{item}增加牛牛负重\n"
+            return text
         if user_data['items_num'][item] < 1:
             text += f"❌ 你没有“{item}”，输入“/牛牛商城”查看购买\n"
             return text
         # 使用道具
         user_data['items_num'][item] -= 1
-        pass
+        # 具体使用逻辑
+        if user_data['items']['sandbag']:
+            text += f"❌ 你已经使用过了{item}，快去锻炼试试效果吧\n"
+        else:
+            user_data['items']['sandbag'] = True
+            text += f"✅ 使用成功，下次牛牛锻炼效果翻倍\n"
+        self.data_manager.save_user_data(user_id, user_data)
+        return text
 
-    def use_jumping_egg(self,user_id):
+    def use_jumping_egg(self, user_id) -> str:
         """使用会跳的蛋"""
         # 判断是否存在道具
         user_data = self.data_manager.get_user_data(user_id)
         text = ''
         item = '会跳的蛋'
+        if not user_data['items']['transfer']:
+            text += f"❌ 你还没有变成美少女哦，无法使用{item}\n"
+            return text
         if user_data['items_num'][item] < 1:
             text += f"❌ 你没有“{item}”，输入“/牛牛商城”查看购买\n"
             return text
         # 使用道具
         user_data['items_num'][item] -= 1
-        pass
+        # 具体使用逻辑
+        if user_data['items']['jump_egg']:
+            text += f"❌ 你已经使用过了{item}，快去锻炼试试效果吧\n"
+        else:
+            user_data['items']['jump_egg'] = True
+            text += f"✅ 使用成功，下次猫猫锻炼效果翻倍\n"
+        self.data_manager.save_user_data(user_id, user_data)
+        return text
 
-    def use_trans(self,user_id):
+
+    def use_trans(self, user_id) -> str:
         """使用性转针筒"""
         # 判断是否存在道具
         user_data = self.data_manager.get_user_data(user_id)
@@ -333,9 +412,21 @@ class Shop:
             return text
         # 使用道具
         user_data['items_num'][item] -= 1
-        pass
+        # 具体使用逻辑
+        if not user_data['items']['transfer']:
+            # 记录牛变猫时间
+            user_data['time_recording']['start_trans'] = time.time()
+        user_data['items']['transfer'] = False if user_data['items']['transfer'] else True
+        self.data_manager.save_user_data(user_id, user_data)
+        if user_data['items']['transfer']:
+            text += f"👧 手术很成功！成功变成美少女\n"
+        else:
+            text += f"👦 手术很成功！你再次找回了自己的牛牛\n"
+        self.data_manager.save_user_data(user_id, user_data)
+        return text
 
-    def use_fling(self,user_id):
+
+    def use_fling(self, user_id) -> str:
         """使用春风精灵"""
         # 判断是否存在道具
         user_data = self.data_manager.get_user_data(user_id)
@@ -346,9 +437,18 @@ class Shop:
             return text
         # 使用道具
         user_data['items_num'][item] -= 1
-        pass
+        # 具体逻辑
+        can_elf ,_ = check_cooldown(user_data['time_recording']['start_elf'],3600)
+        if can_elf:
+            user_data['time_recording']['start_elf'] = time.time()
+            name = "猫猫" if user_data['items']['transfer'] else "牛牛"
+            text += f"🧚 使用成功，接下来一个小时将{name}交给精灵照顾吧\n"
+        else:
+            text += f"❌ 无需使用，春风精灵仍在工作中\n"
+        self.data_manager.save_user_data(user_id, user_data)
+        return text
 
-    def use_20off(self,user_id):
+    def use_20off(self, user_id) -> str:
         """使用八折优惠券"""
         # 判断是否存在道具
         user_data = self.data_manager.get_user_data(user_id)
@@ -359,3 +459,13 @@ class Shop:
             return text
         # 使用道具
         user_data['items_num'][item] -= 1
+        # 具体使用逻辑
+        if user_data['items']['20off']:
+            # 如果已经使用了优惠券，则延长时间
+            text += f"❌ 无需使用，仍然在打折时间内，8折结束时间{timestamp_to_hhmm(user_data['time_recording']['start_20off']+300)}"
+        else:
+            user_data['time_recording']['start_20off'] = time.time()
+            user_data['items']['20off'] = True
+            text += "🎫 使用成功，接下来五分钟商店全部商品八折"
+        self.data_manager.save_user_data(user_id, user_data)
+        return text

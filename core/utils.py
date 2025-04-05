@@ -98,16 +98,22 @@ def check_cooldown(start_timestamp: float, cd: float) -> tuple[bool, str]:
     current_time = time.time()
     elapsed = current_time - start_timestamp
     remaining = cd - elapsed
-    if remaining < 60:
-        text = f"{int(remaining)}秒"
-    else:
-        mins, secs = divmod(int(remaining), 60)
-        text = f"{mins:02d}分{secs:02d}秒"
 
     if remaining <= 0:
-        return True, text
+        return True, "0秒"
+
+    remaining_int = int(remaining)
+    if remaining < 60:
+        text = f"{remaining_int}秒"
+    elif remaining < 3600:
+        mins, secs = divmod(remaining_int, 60)
+        text = f"{mins:02d}分{secs:02d}秒"
     else:
-        return False, text  # 保留两位小数
+        hours, remainder = divmod(remaining_int, 3600)
+        mins, secs = divmod(remainder, 60)
+        text = f"{hours}小时{mins:02d}分{secs:02d}秒"
+
+    return False, text
 
 
 def get_add_text(true_add, original_add, user_data) -> str:
@@ -118,3 +124,19 @@ def get_add_text(true_add, original_add, user_data) -> str:
     else:
         text += f"📏 {user_data['niuniu_name']}的长度增加{true_add}cm，当前长度：{format_length(user_data['length'])}\n"
     return text
+
+
+def timestamp_to_hhmm(timestamp):
+    """
+    将时间戳转换为hh:mm格式的字符串
+
+    参数:
+        timestamp (int/float): 时间戳（秒数）
+
+    返回:
+        str: hh:mm格式的时间字符串
+    """
+    # 将时间戳转换为本地时间的时间元组
+    time_tuple = time.localtime(timestamp)
+    # 格式化时间为hh:mm格式
+    return time.strftime("%H:%M", time_tuple)

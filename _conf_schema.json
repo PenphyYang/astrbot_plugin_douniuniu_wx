@@ -9,29 +9,43 @@
     "do_self_cooldown": {
         "description": "打胶/自摸的冷却时间",
         "type": "int",
-        "hint": "建议设置，单位是：分钟",
-        "default": 10,
+        "hint": "建议设置，单位是：秒",
+        "default": 600,
         "obvious_hint": false
     },
     "do_other_cooldown": {
         "description": "锁牛牛/吸猫猫的冷却时间",
         "type": "int",
-        "hint": "建议设置，单位是：分钟",
-        "default": 5,
+        "hint": "建议设置，单位是：秒",
+        "default": 300,
         "obvious_hint": false
     },
     "max_work_hours": {
         "description": "最长打工时长",
         "type": "int",
-        "hint": "建议设置，单位是：小时",
-        "default": 6,
+        "hint": "建议设置，单位是：秒",
+        "default": 21600,
         "obvious_hint": false
     },
-    "coins_per_ten_minute": {
-        "description": "每10分钟打工奖励金币数",
+    "max_exercise_hours": {
+        "description": "最长锻炼时长",
+        "type": "int",
+        "hint": "建议设置，单位是：秒",
+        "default": 10800,
+        "obvious_hint": false
+    },
+    "coins_per_hour": {
+        "description": "每小时打工奖励金币数",
         "type": "int",
         "hint": "用于调整金币获取速度",
-        "default": 5,
+        "default": 30,
+        "obvious_hint": false
+    },
+    "trans_time": {
+        "description": "性转持续时间",
+        "type": "int",
+        "hint": "调整性转针筒持续时间",
+        "default": 86400,
         "obvious_hint": false
     }
 }

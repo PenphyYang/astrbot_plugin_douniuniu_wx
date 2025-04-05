@@ -1,3 +1,4 @@
+import asyncio
 import time
 
 from astrbot.api.event import filter, AstrMessageEvent
@@ -5,10 +6,12 @@ from astrbot.api.star import Context, Star, register
 from astrbot.api import AstrBotConfig
 from astrbot.core.message.components import At
 import astrbot.api.message_components as Comp
+from astrbot.core.message.message_event_result import MessageChain
 from astrbot.core.star.filter.event_message_type import EventMessageType
 from astrbot.core.star.filter.permission import PermissionType
 from data.plugins.astrbot_plugin_douniuniu.core.data_manager import DataManager
 from .core.battle import Battle
+from .core.do_other import DoOther
 from .core.do_self import DoSelf
 from .core.shop import Shop
 from .core.utils import format_length, is_timestamp_today, random_normal_distribution_int, check_cooldown
@@ -23,6 +26,8 @@ class DouNiuniuPlugin(Star):
         self.battle = Battle()
         self.shop = Shop()
         self.do_self = DoSelf()
+        self.do_other = DoOther()
+        self.task = {}
 
     def check_group_enable(self, group_id):
         return self.data_manager.get_group_data(group_id)['plugin_enabled']
@@ -50,7 +55,7 @@ class DouNiuniuPlugin(Star):
         yield event.plain_result(text)
 
     @filter.permission_type(PermissionType.ADMIN)
-    @filter.command("强制创建牛牛", alias={'强制创建'})
+    @filter.command("强制创建牛牛", alias={'强制创建', '强制注册'})
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
     async def force_register_bull(self, event: AstrMessageEvent):
         """强制为对方创建牛牛，仅管理员，需要@"""
@@ -115,7 +120,7 @@ class DouNiuniuPlugin(Star):
                 user_trans = user_data['items']['transfer']
                 name = '猫猫' if user_trans else '牛牛'
                 icon = '🐈️' if user_trans else '🐂'
-                self.data_manager.add_in_group(user_id,group_id)
+                self.data_manager.add_in_group(user_id, group_id)
                 self.data_manager.update_rank(user_id)
                 if not user_trans:
                     yield event.plain_result(
@@ -124,7 +129,7 @@ class DouNiuniuPlugin(Star):
                     yield event.plain_result(
                         f"{icon} 你带着深度为{user_data['hole']}cm，敏感度为{user_data['sensitivity']}的{name}加入了本群")
 
-    @filter.command("牛牛排行",alias={'排行榜','排行'})
+    @filter.command("牛牛排行", alias={'排行榜', '排行'})
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
     async def show_rank(self, event: AstrMessageEvent, n: int = 10):
         """展示本群前n名的牛牛"""
@@ -159,10 +164,10 @@ class DouNiuniuPlugin(Star):
         group_data = self.data_manager.get_group_data(group_id)
 
         if user_id in group_data['manager']:
-            yield event.plain_result(f"{user_id}已是目标群的牛牛管理员")
+            yield event.plain_result(f"❌ {user_id}已是目标群的牛牛管理员")
         else:
             self.data_manager.add_group_manager(group_id, user_id)
-            yield event.plain_result(f"{user_id}已被设为{group_id}的牛牛管理员")
+            yield event.plain_result(f"✅ {user_id}已被设为{group_id}的牛牛管理员")
 
     @filter.permission_type(PermissionType.ADMIN)
     @filter.command("删除牛牛管理员", alias={'删除'})
@@ -172,10 +177,10 @@ class DouNiuniuPlugin(Star):
         group_data = self.data_manager.get_group_data(group_id)
 
         if user_id not in group_data['manager']:
-            yield event.plain_result(f"{user_id}并不是目标群的牛牛管理员")
+            yield event.plain_result(f"❌ {user_id}并不是目标群的牛牛管理员")
         else:
             self.data_manager.del_group_manager(group_id, user_id)
-            yield event.plain_result(f"已清除{user_id}在{group_id}的牛牛管理员权限")
+            yield event.plain_result(f"✅ 已清除{user_id}在{group_id}的牛牛管理员权限")
 
     @filter.command("牛牛帮助", alias={'帮助', '文档', '牛牛文档', '菜单', '牛牛菜单'})
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
@@ -196,7 +201,7 @@ class DouNiuniuPlugin(Star):
         else:
             self.data_manager.set_group_enabled(group_id, True)
             yield event.plain_result(
-                f"🔓️ 牛牛插件已开启\n\n🔗 本插件github名称：https://github.com/LaoZhuJackson/astrbot_plugin_douniuniu#\n🌟 欢迎来点星星，提需求和提交bug━(*｀∀´*)ノ亻!")
+                f"🔓️ 牛牛插件已开启\n\n🔗 本插件github链接：https://github.com/LaoZhuJackson/astrbot_plugin_douniuniu#\n🌟 欢迎来点星星，提需求和提交bug━(*｀∀´*)ノ亻!")
 
     @filter.command("关闭牛牛", alias={'关闭', '牛牛关闭'})
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
@@ -211,6 +216,45 @@ class DouNiuniuPlugin(Star):
         else:
             self.data_manager.set_group_enabled(group_id, False)
             yield event.plain_result(f"🔒 牛牛插件已关闭")
+
+    @filter.command("注销牛牛", alias={'注销'})
+    @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
+    async def delete_niuniu(self, event: AstrMessageEvent, who: str = None):
+        """注销自己或其他用户的牛牛并清空对应排行榜"""
+        user_id = event.get_sender_id()
+        # 判断是否为管理员
+        group_id = event.get_group_id()
+        manager_list = self.data_manager.get_group_data(group_id)['manager']
+        if not who:
+            for comp in event.message_obj.message:
+                if isinstance(comp, At):
+                    user2_id = str(comp.qq)
+                    if user2_id not in manager_list:
+                        yield event.plain_result(f"❌ 你不是本群的牛牛管理员，无法注销其他用户")
+                        return
+                    other_data = self.data_manager.get_user_data(user2_id)
+                    if not other_data:
+                        yield event.plain_result(f'❌ 他的牛牛还没出生，需要对方输入“/创建牛牛”创建牛牛')
+                        return
+                    # 注销别人的需要别人在他那个群，注销自己的则不需要
+                    if user2_id not in self.data_manager.get_group_rank_all(group_id):
+                        yield event.plain_result(f'❌ 他的牛牛还没加入本群，需要对方输入“/牛牛进群”将牛牛加入本群')
+                        return
+                    self.data_manager.delete_user(user2_id)
+                    yield event.plain_result(f"✅ 注销用户 {other_data['user_name']} 成功\n")
+                    return
+            yield event.plain_result(f"❌ 注销他人牛牛需要管理员权限且@需要注销的人\n如果需要注销自己，输入“/注销 自己”")
+        else:
+            if who == "自己":
+                sender_data = self.data_manager.get_user_data(user_id)
+                if not sender_data:
+                    yield event.plain_result(f'❌ 你的牛牛还没出生，输入“/创建牛牛”创建牛牛')
+                    return
+                self.data_manager.delete_user(user_id)
+                yield event.plain_result(f"✅ 注销用户 {sender_data['user_name']} 成功\n")
+            else:
+                yield event.plain_result(
+                    f"❌ 注销他人牛牛需要管理员权限且@需要注销的人\n如果需要注销自己，输入“/注销 自己”")
 
     @filter.command("牛牛决斗", alias={'比划比划', '🤺', '比划', '决斗', '击剑'})
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
@@ -230,6 +274,13 @@ class DouNiuniuPlugin(Star):
         if sender_id not in self.data_manager.get_group_rank_all(group_id):
             yield event.plain_result(f'❌ 你的牛牛还没加入本群，输入“/牛牛进群”将牛牛加入本群')
             return
+        name = "猫猫" if self.data_manager.get_user_data(sender_id)['items']['transfer'] else "牛牛"
+        if self.is_work(sender_id):
+            yield event.plain_result(f'❌ 你的{name}还在卖力工作中')
+            return
+        if self.is_exercise(sender_id):
+            yield event.plain_result(f'❌ 你的{name}还在努力锻炼中')
+            return
         other_data = {}
         user_id = ''
         for comp in event.message_obj.message:
@@ -241,6 +292,13 @@ class DouNiuniuPlugin(Star):
                     return
                 if user_id not in self.data_manager.get_group_rank_all(group_id):
                     yield event.plain_result(f'❌ 他的牛牛还没加入本群，需要对方输入“/牛牛进群”将牛牛加入本群')
+                    return
+                name = "猫猫" if self.data_manager.get_user_data(user_id)['items']['transfer'] else "牛牛"
+                if self.is_work(user_id):
+                    yield event.plain_result(f'❌ 他的{name}还在卖力工作中')
+                    return
+                if self.is_exercise(user_id):
+                    yield event.plain_result(f'❌ 他的{name}还在努力锻炼中')
                     return
         if not user_id:
             yield event.plain_result(f'❌ 需要@一个与你决斗的人')
@@ -260,14 +318,7 @@ class DouNiuniuPlugin(Star):
             return
 
         # 进入不同情况下的决斗
-        if not sender_trans and not other_trans:
-            yield event.plain_result(self.battle.niu_vs_niu(group_id, sender_id, user_id))
-        elif sender_trans and not other_trans:
-            yield event.plain_result(self.battle.hole_vs_niu(group_id, sender_id, user_id))
-        elif not sender_trans and other_trans:
-            yield event.plain_result(self.battle.niu_vs_hole(group_id, sender_id, user_id))
-        else:
-            yield event.plain_result(self.battle.hole_vs_hole(group_id, sender_id, user_id))
+        yield event.plain_result(self.battle.user1_vs_user2(group_id, sender_id, user_id))
 
     @filter.command("牛牛取名", alias={'取名', '改名', '名称', '牛牛改名'})
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
@@ -282,7 +333,7 @@ class DouNiuniuPlugin(Star):
         if not user_data:
             yield event.plain_result(f'❌ 你的牛牛还没出生，输入“/创建牛牛”创建牛牛')
             return
-        yield event.plain_result(self.shop.use_rename_card(user_id, name,self.config))
+        yield event.plain_result(self.shop.use_rename_card(user_id, name, self.config))
 
     def get_info(self, user_id, user_name):
         """获取用户信息"""
@@ -304,9 +355,12 @@ class DouNiuniuPlugin(Star):
         text += f"👛 持有金币：{user_data['coins']}\n"
         text += f"🥊 当前连胜：{user_data['current_win_count']}次\n"
         text += f"🗡️ 最高连胜：{user_data['win_count']}次\n"
-        # todo
-        text += f"🥵 打工状态：\n"
-        text += f"🦶 锻炼状态：\n"
+        _,remain_work = check_cooldown(user_data['time_recording']['start_work'][0], user_data['time_recording']['start_work'][1])
+        _,remain_exercise = check_cooldown(user_data['time_recording']['start_exercise'][0], user_data['time_recording']['start_exercise'][1])
+        remain_work = "未工作" if remain_work=='0秒' else remain_work
+        remain_exercise = "未锻炼" if remain_exercise=='0秒' else remain_exercise
+        text += f"🥵 打工时长剩余：{remain_work}\n"
+        text += f"🦶 锻炼时长剩余：{remain_exercise}\n"
 
         transfer_text = '是' if user_data['items']['transfer'] else '否'
         text += f"🔄 性转：{transfer_text}\n"
@@ -352,7 +406,7 @@ class DouNiuniuPlugin(Star):
                 user_name = self.data_manager.get_group_rank_all(group_id)[user_id][0]
                 yield event.plain_result(self.get_info(user_id, user_name))
                 return
-        yield event.plain_result("查看信息需要@想要查看的人")
+        yield event.plain_result("❌ 查看信息需要@想要查看的人")
 
     @filter.command("牛牛签到", alias={'签到', '每日签到'})
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
@@ -440,7 +494,7 @@ class DouNiuniuPlugin(Star):
         user_id = event.get_sender_id()
         user_data = self.data_manager.get_user_data(user_id)
         text = '🎒 你的背包 🎒\n'
-        for key,value in user_data['items_num'].items():
+        for key, value in user_data['items_num'].items():
             if value < 1:
                 continue
             text += f'{key}: {value}\n'
@@ -465,11 +519,12 @@ class DouNiuniuPlugin(Star):
         user_id = event.get_sender_id()
         self.data_manager.add_coins(user_id, money)
         current_money = self.data_manager.get_user_data(user_id)['coins']
-        yield event.plain_result(f'超能力使用成功，当前持有金币：{current_money}')
+        yield event.plain_result(f'💫 超能力使用成功，当前持有金币：{current_money}\n')
 
-    @filter.command("打胶", alias={'导管'})
+    @filter.command("打胶", alias={'导管','自摸'})
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
     async def do_self_niu(self, event: AstrMessageEvent):
+        """为自己导一发"""
         group_id = event.get_group_id()
         if not self.check_group_enable(group_id):
             yield event.plain_result("❌ 牛牛插件未启用")
@@ -481,17 +536,184 @@ class DouNiuniuPlugin(Star):
         if user_id not in self.data_manager.get_group_rank_all(group_id):
             yield event.plain_result(f'❌ 你的牛牛还没加入本群，输入“/牛牛进群”将牛牛加入本群')
             return
-        do_self_cd = self.config['do_self_cooldown']
         user_data = self.data_manager.get_user_data(user_id)
-        can_do,remaining_text = check_cooldown(user_data['time_recording']['do_self'], do_self_cd)
-        if can_do:
-            yield event.plain_result(self.do_self.do_self_niu(group_id, user_id))
+        name = "猫猫" if user_data['items']['transfer'] else "牛牛"
+        if self.is_work(user_id):
+            yield event.plain_result(f'❌ 你的{name}还在卖力工作中')
+            return
+        if self.is_exercise(user_id):
+            yield event.plain_result(f'❌ 你的{name}还在努力锻炼中')
+            return
+        do_self_cd = self.config['do_self_cooldown']
+
+        can_do, remaining_text = check_cooldown(user_data['time_recording']['do_self'], do_self_cd)
+        # 判断伟哥次数
+        if can_do or user_data['items']['viagra']>0:
+            if user_data['items']['transfer']:
+                yield event.plain_result(self.do_self.do_self_mao(group_id, user_id))
+            else:
+                yield event.plain_result(self.do_self.do_self_niu(group_id, user_id))
         else:
-            yield event.plain_result(f'❌ 你的牛牛还在贤者模式，cd剩余：{remaining_text}')
+            yield event.plain_result(f'❌ 你的{name}还在贤者模式，cd剩余：{remaining_text}')
+
+    @filter.command("锁牛牛", alias={'嗦牛牛'})
+    @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
+    async def do_other_niu(self, event: AstrMessageEvent):
+        """锁群友牛牛"""
+        group_id = event.get_group_id()
+        if not self.check_group_enable(group_id):
+            yield event.plain_result("❌ 牛牛插件未启用")
+            return
+        user1_id = event.get_sender_id()
+        for comp in event.message_obj.message:
+            if isinstance(comp, At):
+                user2_id = str(comp.qq)
+                if not self.data_manager.get_user_data(user2_id):
+                    yield event.plain_result(f'❌ 他的牛牛还没出生，需要对方输入“/创建牛牛”创建牛牛')
+                    return
+                if user2_id not in self.data_manager.get_group_rank_all(group_id):
+                    yield event.plain_result(f'❌ 他的牛牛未加入本群，无法锁他牛牛')
+                    return
+                name = "猫猫" if self.data_manager.get_user_data(user2_id)['items']['transfer'] else "牛牛"
+                if self.is_work(user2_id):
+                    yield event.plain_result(f'❌ 他的{name}还在卖力工作中')
+                    return
+                if self.is_exercise(user2_id):
+                    yield event.plain_result(f'❌ 他的{name}还在努力锻炼中')
+                    return
+                yield event.plain_result(self.do_other.do_other_niu(group_id,user1_id, user2_id,self.config['do_other_cooldown']))
+                return
+        yield event.plain_result("锁牛牛需要@想要锁的人")
+
+    @filter.command("锻炼", alias={'牛牛锻炼','猫猫锻炼'})
+    @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
+    async def do_exercise(self, event: AstrMessageEvent, hours:int=1):
+        """让牛牛/猫猫强身健体"""
+        group_id = event.get_group_id()
+        if not self.check_group_enable(group_id):
+            yield event.plain_result("❌ 牛牛插件未启用")
+            return
+        user_id = event.get_sender_id()
+        if not self.data_manager.get_user_data(user_id):
+            yield event.plain_result(f'❌ 你的牛牛还没出生，输入“/创建牛牛”创建牛牛')
+            return
+        if hours*3600 >self.config['max_exercise_hours'] or hours<1:
+            yield event.plain_result(f'❌ 锻炼时长范围需要在1~{self.config["max_exercise_hours"]/3600}小时')
+            return
+
+        user_data = self.data_manager.get_user_data(user_id)
+        name = "猫猫" if user_data['items']['transfer'] else "牛牛"
+        text = ''
+        can_exercise, remain_text = check_cooldown(user_data['time_recording']['start_exercise'][0],
+                                               user_data['time_recording']['start_exercise'][1])
+        if can_exercise:
+            user_data['time_recording']['start_exercise'][0] = time.time()
+            user_data['time_recording']['start_exercise'][1] = hours * 3600
+            if user_data['items']['transfer']:
+                # 结算硬度
+                if user_data['items']['jump_egg']:
+                    reward = 3 * 2 * hours
+                    user_data['items']['jump_egg'] = False
+                else:
+                    reward = 3 * hours
+                user_data['sensitivity'] += reward
+                text += f"💦 猫猫将会在跳蛋的帮助下锻炼了{hours}小时，敏感度增加{reward}级\n"
+            else:
+                if user_data['items']['sandbag']:
+                    reward = 3 * 2 * hours
+                    user_data['items']['sandbag'] = False
+                else:
+                    reward = 3 * hours
+                user_data['hardness'] += reward
+                text += f"💦 牛牛将会在沙袋的帮助下锻炼了{str(hours)}小时，硬度增加{reward}级\n"
+            self.data_manager.save_user_data(user_id, user_data)
+            yield event.plain_result(text)
+
+            async def after_exercise():
+                user_data = self.data_manager.get_user_data(user_id)
+                sleep_time = user_data['time_recording']['start_exercise'][1] + 5
+                await asyncio.sleep(sleep_time)
+
+                user_data = self.data_manager.get_user_data(user_id)
+                if check_cooldown(user_data['time_recording']['start_exercise'][0],
+                                  user_data['time_recording']['start_exercise'][1])[0]:
+                    umo = event.unified_msg_origin
+                    message_chain = MessageChain().at(user_data["user_name"], user_id).message(
+                        f'💦 {name}的锻炼结束了\n')
+                    await self.context.send_message(umo, message_chain)
+
+            task = asyncio.create_task(after_exercise())
+            self.task[f"exercise_{group_id}_{user_id}"] = task
+        else:
+            text += f"❌ 你的{name}正在努力锻炼中，剩余时间：{remain_text}\n"
+            yield event.plain_result(text)
+
+    def is_exercise(self,user_id):
+        user_data = self.data_manager.get_user_data(user_id)
+        return not check_cooldown(user_data['time_recording']['start_exercise'][0],user_data['time_recording']['start_exercise'][1])[0]
+
+    def is_work(self,user_id):
+        user_data = self.data_manager.get_user_data(user_id)
+        return not check_cooldown(user_data['time_recording']['start_work'][0],user_data['time_recording']['start_work'][1])[0]
+
+    @filter.command("打工", alias={'牛牛打工','猫猫打工','工作'})
+    @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
+    async def do_work(self, event: AstrMessageEvent,hours:int=1):
+        """让牛牛/猫猫打工赚钱"""
+        group_id = event.get_group_id()
+        if not self.check_group_enable(group_id):
+            yield event.plain_result("❌ 牛牛插件未启用")
+            return
+        user_id = event.get_sender_id()
+        if not self.data_manager.get_user_data(user_id):
+            yield event.plain_result(f'❌ 你的牛牛还没出生，输入“/创建牛牛”创建牛牛')
+            return
+        if hours*3600 >self.config['max_work_hours'] or hours<1:
+            yield event.plain_result(f'❌ 打工时长范围需要在1~{self.config["max_work_hours"]/3600}小时')
+            return
+
+        user_data = self.data_manager.get_user_data(user_id)
+        name = "猫猫" if user_data['items']['transfer'] else "牛牛"
+        text = ''
+        can_work, remain_text = check_cooldown(user_data['time_recording']['start_work'][0],
+                                               user_data['time_recording']['start_work'][1])
+        if can_work:
+            user_data['time_recording']['start_work'][0] = time.time()
+            user_data['time_recording']['start_work'][1] = hours
+            if user_data['items']['transfer']:
+                # 结算钱
+                reward = self.config['coins_per_hour'] * 2 * hours
+                user_data['coins'] += reward
+                text += f"💰️ 猫猫需要陪客人{hours}小时，结算工资：{reward}金币\n"
+            else:
+                reward = self.config['coins_per_hour'] * hours
+                user_data['coins'] += reward
+                text += f"💰️ 牛牛需要陪客人{hours}小时，结算工资：{reward}金币\n"
+            self.data_manager.save_user_data(user_id, user_data)
+            yield event.plain_result(text)
+
+            async def after_work():
+                user_data = self.data_manager.get_user_data(user_id)
+                sleep_time = user_data['time_recording']['start_work'][1] + 5
+                await asyncio.sleep(sleep_time)
+
+                user_data = self.data_manager.get_user_data(user_id)
+                if check_cooldown(user_data['time_recording']['start_work'][0],
+                                  user_data['time_recording']['start_work'][1])[0]:
+                    umo = event.unified_msg_origin
+                    message_chain = MessageChain().at(user_data["user_name"], user_id).message(
+                        f'💰️ {name}的打工结束了\n')
+                    await self.context.send_message(umo, message_chain)
+
+            task = asyncio.create_task(after_work())
+            self.task[f"work_{group_id}_{user_id}"] = task
+        else:
+            text += f"❌ 你的{name}正在卖力打工中，剩余时间：{remain_text}\n"
+            yield event.plain_result(text)
 
     @filter.command("转账", alias={'转钱'})
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
-    async def give_money(self, event: AstrMessageEvent,money:int):
+    async def give_money(self, event: AstrMessageEvent, money: int):
         """向指定用户转账"""
         group_id = event.get_group_id()
         if not self.check_group_enable(group_id):
@@ -513,19 +735,20 @@ class DouNiuniuPlugin(Star):
                     if not self.data_manager.get_user_data(user2_id):
                         yield event.plain_result(f'❌ 他的牛牛还没出生，需要对方输入“/创建牛牛”创建牛牛')
                         return
-                    self.data_manager.del_coins(user1_id,money)
-                    self.data_manager.add_coins(user2_id,money)
-            yield event.plain_result("转账需要@想要查看的人")
+                    self.data_manager.del_coins(user1_id, money)
+                    self.data_manager.add_coins(user2_id, money)
+                    yield event.plain_result("✅ 转账成功")
+                    return
+            yield event.plain_result("❌ 转账需要@想要转账的人")
 
-
-    @filter.command_group("使用道具",alias={'使用'})
+    @filter.command_group("使用道具", alias={'使用'})
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
     def use_item(self):
         """使用道具命令组"""
         pass
 
-    @use_item.command("牛牛寄生虫", alias={'寄生虫'})
-    async def use_drone(self, event: AstrMessageEvent,num:int=1):
+    @use_item.command("牛牛寄生虫", alias={'寄生虫','15'})
+    async def use_drone(self, event: AstrMessageEvent, num: int = 1):
         """使用牛牛寄生虫"""
         group_id = event.get_group_id()
         if not self.check_group_enable(group_id):
@@ -541,11 +764,11 @@ class DouNiuniuPlugin(Star):
                 if user2_id not in self.data_manager.get_group_rank_all(group_id):
                     yield event.plain_result(f'❌ 他的牛牛未加入本群，无法寄生')
                     return
-                yield event.plain_result(self.shop.use_drone(user1_id, user2_id,num))
+                yield event.plain_result(self.shop.use_drone(user1_id, user2_id, num))
                 return
         yield event.plain_result(f'❌ 使用牛牛寄生虫需要@想要寄生的人')
 
-    @use_item.command("六味地黄丸", alias={'必胜药'})
+    @use_item.command("六味地黄丸", alias={'必胜药','7'})
     async def use_pill(self, event: AstrMessageEvent):
         """使用六味地黄丸"""
         group_id = event.get_group_id()
@@ -558,7 +781,33 @@ class DouNiuniuPlugin(Star):
             return
         yield event.plain_result(self.shop.use_sure_win(user_id))
 
-    @use_item.command("黑店壮丁手术体验卡", alias={'黑店手术','黑店'})
+    @use_item.command("负重沙袋", alias={'沙袋', '8'})
+    async def use_sandbag(self, event: AstrMessageEvent):
+        """使用负重沙袋"""
+        group_id = event.get_group_id()
+        if not self.check_group_enable(group_id):
+            yield event.plain_result("❌ 牛牛插件未启用")
+            return
+        user_id = event.get_sender_id()
+        if not self.data_manager.get_user_data(user_id):
+            yield event.plain_result(f'❌ 你的牛牛还没出生，输入“/创建牛牛”创建牛牛')
+            return
+        yield event.plain_result(self.shop.use_sandbag(user_id))
+
+    @use_item.command("会跳的蛋", alias={'跳蛋', '9'})
+    async def use_jump_egg(self, event: AstrMessageEvent):
+        """使用会跳的蛋"""
+        group_id = event.get_group_id()
+        if not self.check_group_enable(group_id):
+            yield event.plain_result("❌ 牛牛插件未启用")
+            return
+        user_id = event.get_sender_id()
+        if not self.data_manager.get_user_data(user_id):
+            yield event.plain_result(f'❌ 你的牛牛还没出生，输入“/创建牛牛”创建牛牛')
+            return
+        yield event.plain_result(self.shop.use_jumping_egg(user_id))
+
+    @use_item.command("黑店壮丁手术体验卡", alias={'黑店手术', '黑店','4'})
     async def use_big_d_1(self, event: AstrMessageEvent):
         """使用黑店壮丁手术体验卡"""
         group_id = event.get_group_id()
@@ -569,9 +818,9 @@ class DouNiuniuPlugin(Star):
         if not self.data_manager.get_user_data(user_id):
             yield event.plain_result(f'❌ 你的牛牛还没出生，输入“/创建牛牛”创建牛牛')
             return
-        yield event.plain_result(self.shop.use_big_d(group_id,user_id,0.3))
+        yield event.plain_result(self.shop.use_big_d(group_id, user_id, 0.3))
 
-    @use_item.command("诊所壮丁手术体验卡", alias={'诊所手术', '诊所'})
+    @use_item.command("诊所壮丁手术体验卡", alias={'诊所手术', '诊所','5'})
     async def use_big_d_2(self, event: AstrMessageEvent):
         """使用诊所壮丁手术体验卡"""
         group_id = event.get_group_id()
@@ -584,7 +833,7 @@ class DouNiuniuPlugin(Star):
             return
         yield event.plain_result(self.shop.use_big_d(group_id, user_id, 0.5))
 
-    @use_item.command("医院壮丁手术体验卡", alias={'医院手术', '医院'})
+    @use_item.command("医院壮丁手术体验卡", alias={'医院手术', '医院','6'})
     async def use_big_d_3(self, event: AstrMessageEvent):
         """使用医院壮丁手术体验卡"""
         group_id = event.get_group_id()
@@ -597,8 +846,8 @@ class DouNiuniuPlugin(Star):
             return
         yield event.plain_result(self.shop.use_big_d(group_id, user_id, 0.7))
 
-    @use_item.command("杀虫剂", alias={'杀虫'})
-    async def use_insecticide(self, event: AstrMessageEvent,num:int=1):
+    @use_item.command("杀虫剂", alias={'杀虫','18'})
+    async def use_insecticide(self, event: AstrMessageEvent, num: int = 1):
         """使用杀虫剂"""
         group_id = event.get_group_id()
         if not self.check_group_enable(group_id):
@@ -610,7 +859,7 @@ class DouNiuniuPlugin(Star):
             return
         yield event.plain_result(self.shop.use_insecticide(user1_id, num))
 
-    @use_item.command("牛牛盲盒", alias={'盲盒'})
+    @use_item.command("牛牛盲盒", alias={'盲盒','14'})
     async def use_cassette(self, event: AstrMessageEvent):
         """使用牛牛盲盒"""
         group_id = event.get_group_id()
@@ -623,7 +872,20 @@ class DouNiuniuPlugin(Star):
             return
         yield event.plain_result(self.shop.use_cassette(user_id))
 
-    @use_item.command("猫猫转换器", alias={'猫猫转换'})
+    @use_item.command("伟哥",alias={'1'})
+    async def use_viagra(self, event: AstrMessageEvent,num:int=1):
+        """使用牛牛盲盒"""
+        group_id = event.get_group_id()
+        if not self.check_group_enable(group_id):
+            yield event.plain_result("❌ 牛牛插件未启用")
+            return
+        user_id = event.get_sender_id()
+        if not self.data_manager.get_user_data(user_id):
+            yield event.plain_result(f'❌ 你的牛牛还没出生，输入“/创建牛牛”创建牛牛')
+            return
+        yield event.plain_result(self.shop.use_viagra(user_id,num))
+
+    @use_item.command("猫猫转换器", alias={'猫猫转换','12'})
     async def use_exchange_mao(self, event: AstrMessageEvent):
         """使用猫猫转换器"""
         group_id = event.get_group_id()
@@ -644,11 +906,11 @@ class DouNiuniuPlugin(Star):
                 if user2_id not in self.data_manager.get_group_rank_all(group_id):
                     yield event.plain_result(f'❌ 他的牛牛还没加入本群，需要对方输入“/牛牛进群”将牛牛加入本群')
                     return
-                yield event.plain_result(self.shop.use_exchange_mao(user1_id,user2_id))
+                yield event.plain_result(self.shop.use_exchange_mao(user1_id, user2_id))
                 return
         yield event.plain_result(f'❌ 使用猫猫转换器需要@想要转换的人')
 
-    @use_item.command("牛牛转换器", alias={'牛牛转换'})
+    @use_item.command("牛牛转换器", alias={'牛牛转换','11'})
     async def use_exchange_niu(self, event: AstrMessageEvent):
         """使用牛牛转换器"""
         group_id = event.get_group_id()
@@ -673,6 +935,137 @@ class DouNiuniuPlugin(Star):
                 return
         yield event.plain_result(f'❌ 使用牛牛转换器需要@想要转换的人')
 
+    @use_item.command("迷幻菌子", alias={'菌子','2'})
+    async def use_mushroom(self, event: AstrMessageEvent):
+        """使用迷幻菌子"""
+        group_id = event.get_group_id()
+        if not self.check_group_enable(group_id):
+            yield event.plain_result("❌ 牛牛插件未启用")
+            return
+        user1_id = event.get_sender_id()
+        if not self.data_manager.get_user_data(user1_id):
+            yield event.plain_result(f'❌ 你的牛牛还没出生，输入“/创建牛牛”创建牛牛')
+            return
+        yield event.plain_result(self.shop.use_mushroom(group_id, user1_id, self.config['do_self_cooldown']))
+
+    @use_item.command("春天的药", alias={'春药', '3'})
+    async def use_aphrodisiac(self, event: AstrMessageEvent):
+        """使用春天的药"""
+        group_id = event.get_group_id()
+        if not self.check_group_enable(group_id):
+            yield event.plain_result("❌ 牛牛插件未启用")
+            return
+        user1_id = event.get_sender_id()
+        if not self.data_manager.get_user_data(user1_id):
+            yield event.plain_result(f'❌ 你的牛牛还没出生，输入“/创建牛牛”创建牛牛')
+            return
+        yield event.plain_result(self.shop.use_aphrodisiac(group_id, user1_id, self.config['do_other_cooldown']))
+
+    @use_item.command("性转针筒", alias={'性转', '针筒','10'})
+    async def use_trans(self, event: AstrMessageEvent):
+        """使用性转针筒"""
+        group_id = event.get_group_id()
+        if not self.check_group_enable(group_id):
+            yield event.plain_result("❌ 牛牛插件未启用")
+            return
+        user1_id = event.get_sender_id()
+        if not self.data_manager.get_user_data(user1_id):
+            yield event.plain_result(f'❌ 你的牛牛还没出生，输入“/创建牛牛”创建牛牛')
+            return
+        user_data = self.data_manager.get_user_data(user1_id)
+        name = "猫猫" if user_data['items']['transfer'] else "牛牛"
+        if self.is_work(user1_id):
+            yield event.plain_result(f'❌ 你的{name}还在卖力工作中')
+            return
+        if self.is_exercise(user1_id):
+            yield event.plain_result(f'❌ 你的{name}还在努力锻炼中')
+            return
+        yield event.plain_result(self.shop.use_trans(user1_id))
+
+        async def restore_gender():
+            sleep_seconds = self.config['trans_time']
+            await asyncio.sleep(sleep_seconds)
+
+            user_data = self.data_manager.get_user_data(user1_id)
+            if user_data['items']['transfer']:
+                self.data_manager.set_value(user1_id, ['items', 'transfer'], False)
+                umo = event.unified_msg_origin
+                message_chain = MessageChain().at(user_data["user_name"], user1_id).message(
+                    '🔄 你的性转时间结束了，猫猫离去，牛牛回归\n')
+                await self.context.send_message(umo, message_chain)
+
+        task = asyncio.create_task(restore_gender())
+        # 需要保留任务引用（如保存为实例变量），防止被GC提前回收
+        self.task[f"trans_{group_id}_{user1_id}"] = task
+
+    @use_item.command("八折优惠券", alias={'八折', '优惠券','17'})
+    async def use_20off(self, event: AstrMessageEvent):
+        """使用八折优惠券"""
+        group_id = event.get_group_id()
+        if not self.check_group_enable(group_id):
+            yield event.plain_result("❌ 牛牛插件未启用")
+            return
+        user1_id = event.get_sender_id()
+        if not self.data_manager.get_user_data(user1_id):
+            yield event.plain_result(f'❌ 你的牛牛还没出生，输入“/创建牛牛”创建牛牛')
+            return
+        yield event.plain_result(self.shop.use_20off(user1_id))
+
+        async def restore_price():
+            sleep_seconds = 5 * 60
+            await asyncio.sleep(sleep_seconds)
+
+            user_data = self.data_manager.get_user_data(user1_id)
+            if user_data['items']['20off']:
+                self.data_manager.set_value(user1_id, ['items', '20off'], False)
+                umo = event.unified_msg_origin
+                message_chain = MessageChain().at(user_data["user_name"], user1_id).message(
+                    '🎫 8折优惠券效果结束，商店价格恢复\n')
+                await self.context.send_message(umo, message_chain)
+
+        task = asyncio.create_task(restore_price())
+        # 需要保留任务引用（如保存为实例变量），防止被GC提前回收
+        self.task[f"20off_{group_id}_{user1_id}"] = task
+
+    @use_item.command("春风精灵", alias={'精灵','13'})
+    async def use_elf(self, event: AstrMessageEvent):
+        """使用春风精灵"""
+        group_id = event.get_group_id()
+        if not self.check_group_enable(group_id):
+            yield event.plain_result("❌ 牛牛插件未启用")
+            return
+        user1_id = event.get_sender_id()
+        if not self.data_manager.get_user_data(user1_id):
+            yield event.plain_result(f'❌ 你的牛牛还没出生，输入“/创建牛牛”创建牛牛')
+            return
+        yield event.plain_result(self.shop.use_fling(user1_id))
+
+        async def start_do_self():
+            user_data = self.data_manager.get_user_data(user1_id)
+            end_time = user_data['time_recording']['start_elf'] + 3600
+            while time.time() < end_time:
+                user_data = self.data_manager.get_user_data(user1_id)
+                last_do_self = user_data['time_recording']['do_self']
+                can_do, _ = check_cooldown(last_do_self, self.config['do_self_cooldown'])
+                if can_do:
+                    if user_data['items']['elf_reminder']:
+                        is_trans = user_data['items']['transfer']
+                        text = self.do_self.do_self_mao(group_id, user1_id) if is_trans else self.do_self.do_self_niu(
+                            group_id, user1_id)
+                        message_chain = MessageChain().at(user_data["user_name"], user1_id).message(
+                            '🧚 春风精灵提醒\n' + text)
+                        await self.context.send_message(event.unified_msg_origin, message_chain)
+                else:
+                    sleep_seconds = max(1, last_do_self + self.config['do_self_cooldown'] - time.time())
+                    await asyncio.sleep(sleep_seconds)
+            if user_data['items']['elf_reminder']:
+                message_chain = MessageChain().at(user_data["user_name"], user1_id).message(
+                    '🧚 春风精灵效果结束\n')
+                await self.context.send_message(event.unified_msg_origin, message_chain)
+
+        task = asyncio.create_task(start_do_self())
+        # 需要保留任务引用（如保存为实例变量），防止被GC提前回收
+        self.task[f"elf_{group_id}_{user1_id}"] = task
 
     @filter.command_group("配置")
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
@@ -681,7 +1074,7 @@ class DouNiuniuPlugin(Star):
         pass
 
     @filter.permission_type(PermissionType.ADMIN)
-    @config.command("添加名字非法词", alias={'添加非法词','禁用词'})
+    @config.command("添加名字非法词", alias={'添加非法词', '禁用词'})
     async def add_illegal(self, event: AstrMessageEvent, illegal: str):
         """为取名功能添加禁用词"""
         group_id = event.get_group_id()

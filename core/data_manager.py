@@ -74,6 +74,16 @@ class DataManager:
         data = self.load_all_data()
         return data["users"]
 
+    def save_all_group_data(self, data: Dict[str, Any]):
+        all_data = self.load_all_data()
+        all_data["groups"] = data
+        self.save_all_data(all_data)
+
+    def save_all_user_data(self, data: Dict[str, Any]):
+        all_data = self.load_all_data()
+        all_data["users"] = data
+        self.save_all_data(all_data)
+
     def save_group_data(self, group_id: str, group_data: Dict[str, Any]):
         """保存群数据"""
         data = self.load_all_data()
@@ -109,6 +119,13 @@ class DataManager:
             rank = self.get_group_rank_all(group)
             rank[str(user_id)] = [str(user_name), score]
             self.save_group_rank(group, rank)
+
+    def delete_user_from_group_rank(self, group_id,user_id):
+        """将user从group的排行榜中删除"""
+        rank_data = self.get_group_rank_all(group_id)
+        if user_id in rank_data:
+            del rank_data[user_id]
+            self.save_group_rank(group_id, rank_data)
 
     def add_in_group(self,user_id,group_id):
         """加入新群到user_data"""
@@ -168,7 +185,10 @@ class DataManager:
                 'transfer': False,  # 是否已使用性转
                 'pills': False,  # 是否有六味地黄丸效果
                 'drone': [], # 寄生虫效果['user_id1','user_id2']
-                'elf_reminder': False, # 春风精灵提醒
+                'elf_reminder': True, # 春风精灵提醒
+                '20off': False, # 商店打折
+                'sandbag': False, # 是否使用了沙袋
+                'jump_egg': False, # 是否使用了会跳的蛋
             },
             'items_num':{
                 # 拥有对应商品数量统计
@@ -195,10 +215,11 @@ class DataManager:
                 'sign': 0,  # 上次签到时间
                 'do_self': 0,  # 上次打胶/自摸时间
                 'do_other': 0,  # 上次锁牛牛/吸猫猫时间
-                'start_work': 0,  # 开始打工的时间
-                'start_exercise': 0,  # 开始锻炼的时间
+                'start_work': [0,0],  # 开始打工的时间
+                'start_exercise': [0,0],  # 开始锻炼的时间
                 'start_trans': 0,  # 开始性转时间
                 'start_20off': 0,  # 使用8折券时间
+                'start_elf': 0,  # 使用春风精灵时间
             },
         }
         # 保存数据
@@ -209,7 +230,14 @@ class DataManager:
 
     def delete_user(self, user_id: str):
         """注销指定用户"""
-        pass
+        user_data = self.get_user_data(user_id)
+        in_group = user_data['in_group']
+        for group_id in in_group:
+            self.delete_user_from_group_rank(group_id,user_id)
+        all_user_data = self.get_all_user_data()
+        del all_user_data[user_id]
+        self.save_all_user_data(all_user_data)
+
 
     def add_group_manager(self, group_id, user_id):
         """向指定群添加管理员"""
@@ -258,7 +286,7 @@ class DataManager:
         user_drone = user_data['items']['drone']
         if len(user_drone)>0:
             # 寄生虫加长度
-            length = int(length/len(user_drone))
+            length = int(length/(len(user_drone)+1))
             if length>0:
                 for i in user_drone:
                     self.add_length(group_id, i, length)
@@ -278,6 +306,26 @@ class DataManager:
 
         # 更新排行榜
         self.update_rank(user_id)
+
+    def add_hole(self,user_id,deep:int):
+        user_data = self.get_user_data(user_id)
+        user_data['hole'] += deep
+        self.save_user_data(user_id, user_data)
+
+    def del_hole(self,user_id,deep:int):
+        user_data = self.get_user_data(user_id)
+        user_data['hole'] = max(0, user_data['hole'] - deep)
+        self.save_user_data(user_id, user_data)
+
+    def add_sensitivity(self, user_id, sensitivity: int):
+        user_data = self.get_user_data(user_id)
+        user_data['sensitivity'] += sensitivity
+        self.save_user_data(user_id, user_data)
+
+    def del_sensitivity(self, user_id, sensitivity: int):
+        user_data = self.get_user_data(user_id)
+        user_data['sensitivity'] = max(0, user_data['sensitivity'] - sensitivity)
+        self.save_user_data(user_id, user_data)
 
     def add_hardness(self, user_id, hardness: int):
         """增加硬度"""
@@ -323,6 +371,7 @@ class DataManager:
         """更新连胜次数，每次调用增加1连胜，并返回是否破纪录"""
         user_data = self.get_user_data(user_id)
         user_data['current_win_count'] += 1
+        self.save_user_data(user_id, user_data)
         if user_data['current_win_count'] > user_data['win_count']:
             user_data['win_count'] = user_data['current_win_count']
             self.save_user_data(user_id, user_data)
