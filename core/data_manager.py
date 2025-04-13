@@ -13,11 +13,11 @@ from data.plugins.astrbot_plugin_douniuniu.core.utils import random_normal_distr
 class DataManager:
     def __init__(self, file_path='data/douniuniu_plugin/user.yaml'):
         self.file_path = Path(file_path)
-        self._ensure_file_exists()
         self.default_yaml = {
             "groups": {},
             "users": {}
         }
+        self._ensure_file_exists()
         self.min_length = 1
         self.max_length = 10
         self.min_hardness = 1
