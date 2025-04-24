@@ -6,8 +6,8 @@ import os
 from typing import Dict, Any
 from pathlib import Path
 
-from data.plugins.astrbot_plugin_douniuniu.core.exceptions import DataLoadError, DataSaveError
-from data.plugins.astrbot_plugin_douniuniu.core.utils import random_normal_distribution_int, format_length
+from data.plugins.astrbot_plugin_douniuniu_wx.core.exceptions import DataLoadError, DataSaveError
+from data.plugins.astrbot_plugin_douniuniu_wx.core.utils import random_normal_distribution_int, format_length
 
 
 class DataManager:
