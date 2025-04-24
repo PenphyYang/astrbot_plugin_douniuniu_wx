@@ -188,7 +188,7 @@ class DouNiuniuPlugin(Star):
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
     async def show_help(self, event: AstrMessageEvent):
         """显示帮助文档"""
-        yield event.image_result('data/plugins/astrbot_plugin_douniuniu/help.jpg')
+        yield event.image_result('data/plugins/astrbot_plugin_douniuniu_wx/help.jpg')
 
     @filter.command("开启牛牛", alias={'开启', '启用', '牛牛开启', '启用牛牛', '牛牛启用', '启动'})
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
@@ -203,7 +203,7 @@ class DouNiuniuPlugin(Star):
         else:
             self.data_manager.set_group_enabled(group_id, True)
             yield event.plain_result(
-                f"🔓️ 牛牛插件已开启\n\n🔗 本插件github链接：https://github.com/LaoZhuJackson/astrbot_plugin_douniuniu#\n🌟 欢迎来点星星，提需求和提交bug━(*｀∀´*)ノ亻!")
+                f"🔓️ 牛牛插件已开启\n\n🔗 本插件github链接：https://github.com/LaoZhuJackson/astrbot_plugin_douniuniu_wx#\n🌟 欢迎来点星星，提需求和提交bug━(*｀∀´*)ノ亻!")
 
     @filter.command("关闭牛牛", alias={'关闭', '牛牛关闭'})
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
@@ -457,7 +457,7 @@ class DouNiuniuPlugin(Star):
 
             chain = [
                 Comp.Reply(id=user_id),  # 回复 消息发送者
-                Comp.Image.fromFileSystem("data/plugins/astrbot_plugin_douniuniu/store_items.jpg"),  # 从本地文件目录发送图片
+                Comp.Image.fromFileSystem("data/plugins/astrbot_plugin_douniuniu_wx/store_items.jpg"),  # 从本地文件目录发送图片
                 Comp.Plain(text)
             ]
             yield event.chain_result(chain)
