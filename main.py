@@ -161,6 +161,10 @@ class DouNiuniuPlugin(Star):
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
     async def add_manager(self, event: AstrMessageEvent, user_id: str, group_id: str):
         """向指定群里添加指定管理员"""
+        """开启本群牛牛功能"""
+        user_id = event.get_sender_id()
+        # 判断是否为管理员
+        group_id = event.get_group_id()
         self.data_manager.add_group_manager(group_id, user_id)
 #        group_data = self.data_manager.get_group_data(group_id)
 
