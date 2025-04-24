@@ -266,10 +266,10 @@ class DouNiuniuPlugin(Star):
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
     async def battle(self, event: AstrMessageEvent):
         """与另外一个牛牛决斗"""
-        group_id = event.get_group_id()
-        if not self.check_group_enable(group_id):
-            yield event.plain_result("❌ 牛牛插件未启用")
-            return
+        # group_id = event.get_group_id()
+        # if not self.check_group_enable(group_id):
+        #     yield event.plain_result("❌ 牛牛插件未启用")
+        #     return
 
         # 判断双方牛牛是否存在
         sender_id = event.get_sender_id()
@@ -330,10 +330,10 @@ class DouNiuniuPlugin(Star):
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
     async def set_niuniu_name(self, event: AstrMessageEvent, name: str):
         """为牛牛取名"""
-        group_id = event.get_group_id()
-        if not self.check_group_enable(group_id):
-            yield event.plain_result("❌ 牛牛插件未启用")
-            return
+        # group_id = event.get_group_id()
+        # if not self.check_group_enable(group_id):
+        #     yield event.plain_result("❌ 牛牛插件未启用")
+        #     return
         user_id = event.get_sender_id()
         user_data = self.data_manager.get_user_data(user_id)
         if not user_data:
@@ -379,10 +379,10 @@ class DouNiuniuPlugin(Star):
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
     async def show_self_info(self, event: AstrMessageEvent):
         """展示自己的个人信息"""
-        group_id = event.get_group_id()
-        if not self.check_group_enable(group_id):
-            yield event.plain_result("❌ 牛牛插件未启用")
-            return
+        # group_id = event.get_group_id()
+        # if not self.check_group_enable(group_id):
+        #     yield event.plain_result("❌ 牛牛插件未启用")
+        #     return
 
         user_id = event.get_sender_id()
         user_name = event.get_sender_name()
@@ -396,10 +396,10 @@ class DouNiuniuPlugin(Star):
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
     async def show_other_info(self, event: AstrMessageEvent):
         """查看他人的个人信息"""
-        group_id = event.get_group_id()
-        if not self.check_group_enable(group_id):
-            yield event.plain_result("❌ 牛牛插件未启用")
-            return
+        # group_id = event.get_group_id()
+        # if not self.check_group_enable(group_id):
+        #     yield event.plain_result("❌ 牛牛插件未启用")
+        #     return
         for comp in event.message_obj.message:
             if isinstance(comp, At):
                 user_id = str(comp.qq)
@@ -418,10 +418,10 @@ class DouNiuniuPlugin(Star):
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
     async def daily_sign(self, event: AstrMessageEvent):
         """每日签到"""
-        group_id = event.get_group_id()
-        if not self.check_group_enable(group_id):
-            yield event.plain_result("❌ 牛牛插件未启用")
-            return
+        # group_id = event.get_group_id()
+        # if not self.check_group_enable(group_id):
+        #     yield event.plain_result("❌ 牛牛插件未启用")
+        #     return
 
         user_id = event.get_sender_id()
         user_data = self.data_manager.get_user_data(user_id)
@@ -446,10 +446,10 @@ class DouNiuniuPlugin(Star):
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
     async def show_store(self, event: AstrMessageEvent, output_type: str = 'image'):
         """展示商城的所有商品"""
-        group_id = event.get_group_id()
-        if not self.check_group_enable(group_id):
-            yield event.plain_result("❌ 牛牛插件未启用")
-            return
+        # group_id = event.get_group_id()
+        # if not self.check_group_enable(group_id):
+        #     yield event.plain_result("❌ 牛牛插件未启用")
+        #     return
         user_id = event.get_sender_id()
         if not self.data_manager.get_user_data(user_id):
             yield event.plain_result(f'❌ 你的牛牛还没出生，输入“/创建牛牛”创建牛牛')
@@ -472,10 +472,10 @@ class DouNiuniuPlugin(Star):
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
     async def buy_item(self, event: AstrMessageEvent, items_id: int, num: int = 1):
         """购买商品，必须指定商品编号，可选购买数量，默认买1个"""
-        group_id = event.get_group_id()
-        if not self.check_group_enable(group_id):
-            yield event.plain_result("❌ 牛牛插件未启用")
-            return
+        # group_id = event.get_group_id()
+        # if not self.check_group_enable(group_id):
+        #     yield event.plain_result("❌ 牛牛插件未启用")
+        #     return
         user_id = event.get_sender_id()
         if not self.data_manager.get_user_data(user_id):
             yield event.plain_result(f'❌ 你的牛牛还没出生，输入“/创建牛牛”创建牛牛')
@@ -488,10 +488,10 @@ class DouNiuniuPlugin(Star):
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
     async def show_bag(self, event: AstrMessageEvent):
         """展示用户背包物品"""
-        group_id = event.get_group_id()
-        if not self.check_group_enable(group_id):
-            yield event.plain_result("❌ 牛牛插件未启用")
-            return
+        # group_id = event.get_group_id()
+        # if not self.check_group_enable(group_id):
+        #     yield event.plain_result("❌ 牛牛插件未启用")
+        #     return
         user_id = event.get_sender_id()
         if not self.data_manager.get_user_data(user_id):
             yield event.plain_result(f'❌ 你的牛牛还没出生，输入“/创建牛牛”创建牛牛')
@@ -513,10 +513,10 @@ class DouNiuniuPlugin(Star):
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
     async def admin_get_money(self, event: AstrMessageEvent, money: int):
         """bot持有者专用，向账户添加金币"""
-        group_id = event.get_group_id()
-        if not self.check_group_enable(group_id):
-            yield event.plain_result("❌ 牛牛插件未启用")
-            return
+        # group_id = event.get_group_id()
+        # if not self.check_group_enable(group_id):
+        #     yield event.plain_result("❌ 牛牛插件未启用")
+        #     return
         user_id = event.get_sender_id()
         if not self.data_manager.get_user_data(user_id):
             yield event.plain_result(f'❌ 你的牛牛还没出生，输入“/创建牛牛”创建牛牛')
@@ -531,10 +531,10 @@ class DouNiuniuPlugin(Star):
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
     async def do_self_niu(self, event: AstrMessageEvent):
         """为自己导一发"""
-        group_id = event.get_group_id()
-        if not self.check_group_enable(group_id):
-            yield event.plain_result("❌ 牛牛插件未启用")
-            return
+        # group_id = event.get_group_id()
+        # if not self.check_group_enable(group_id):
+        #     yield event.plain_result("❌ 牛牛插件未启用")
+        #     return
         user_id = event.get_sender_id()
         if not self.data_manager.get_user_data(user_id):
             yield event.plain_result(f'❌ 你的牛牛还没出生，输入“/创建牛牛”创建牛牛')
@@ -566,10 +566,10 @@ class DouNiuniuPlugin(Star):
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
     async def do_other_niu(self, event: AstrMessageEvent):
         """锁群友牛牛"""
-        group_id = event.get_group_id()
-        if not self.check_group_enable(group_id):
-            yield event.plain_result("❌ 牛牛插件未启用")
-            return
+        # group_id = event.get_group_id()
+        # if not self.check_group_enable(group_id):
+        #     yield event.plain_result("❌ 牛牛插件未启用")
+        #     return
         user1_id = event.get_sender_id()
         for comp in event.message_obj.message:
             if isinstance(comp, At):
@@ -595,10 +595,10 @@ class DouNiuniuPlugin(Star):
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
     async def do_exercise(self, event: AstrMessageEvent, hours:int=1):
         """让牛牛/猫猫强身健体"""
-        group_id = event.get_group_id()
-        if not self.check_group_enable(group_id):
-            yield event.plain_result("❌ 牛牛插件未启用")
-            return
+        # group_id = event.get_group_id()
+        # if not self.check_group_enable(group_id):
+        #     yield event.plain_result("❌ 牛牛插件未启用")
+        #     return
         user_id = event.get_sender_id()
         if not self.data_manager.get_user_data(user_id):
             yield event.plain_result(f'❌ 你的牛牛还没出生，输入“/创建牛牛”创建牛牛')
@@ -721,10 +721,10 @@ class DouNiuniuPlugin(Star):
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
     async def give_money(self, event: AstrMessageEvent, money: int):
         """向指定用户转账"""
-        group_id = event.get_group_id()
-        if not self.check_group_enable(group_id):
-            yield event.plain_result("❌ 牛牛插件未启用")
-            return
+        # group_id = event.get_group_id()
+        # if not self.check_group_enable(group_id):
+        #     yield event.plain_result("❌ 牛牛插件未启用")
+        #     return
         user1_id = event.get_sender_id()
         if not self.data_manager.get_user_data(user1_id):
             yield event.plain_result(f'❌ 你的牛牛还没出生，输入“/创建牛牛”创建牛牛')
