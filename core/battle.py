@@ -1,8 +1,8 @@
 import math
 import random
 
-from data.plugins.astrbot_plugin_douniuniu.core.data_manager import DataManager
-from data.plugins.astrbot_plugin_douniuniu.core.utils import probabilistic_decision, random_normal_distribution_int, \
+from data.plugins.astrbot_plugin_douniuniu_wx.core.data_manager import DataManager
+from data.plugins.astrbot_plugin_douniuniu_wx.core.utils import probabilistic_decision, random_normal_distribution_int, \
     format_length, get_add_text
 
 
