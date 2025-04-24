@@ -156,31 +156,33 @@ class DouNiuniuPlugin(Star):
                     text += f"🏅 {value[0]}➜{length_text} 硬度{user_data['hardness']}级\n"
             yield event.plain_result(text)
 
-    @filter.permission_type(PermissionType.ADMIN)
+#    @filter.permission_type(PermissionType.ADMIN)
     @filter.command("添加牛牛管理员", alias={'添加'})
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
     async def add_manager(self, event: AstrMessageEvent, user_id: str, group_id: str):
         """向指定群里添加指定管理员"""
-        group_data = self.data_manager.get_group_data(group_id)
+        self.data_manager.add_group_manager(group_id, user_id)
+#        group_data = self.data_manager.get_group_data(group_id)
 
-        if user_id in group_data['manager']:
-            yield event.plain_result(f"❌ {user_id}已是目标群的牛牛管理员")
-        else:
-            self.data_manager.add_group_manager(group_id, user_id)
-            yield event.plain_result(f"✅ {user_id}已被设为{group_id}的牛牛管理员")
+#        if user_id in group_data['manager']:
+#            yield event.plain_result(f"❌ {user_id}已是目标群的牛牛管理员")
+#        else:
+#            self.data_manager.add_group_manager(group_id, user_id)
+#            yield event.plain_result(f"✅ {user_id}已被设为{group_id}的牛牛管理员")
 
-    @filter.permission_type(PermissionType.ADMIN)
+#    @filter.permission_type(PermissionType.ADMIN)
     @filter.command("删除牛牛管理员", alias={'删除'})
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
     async def del_manager(self, event: AstrMessageEvent, user_id: str, group_id: str):
         """向指定群里删除指定管理员"""
-        group_data = self.data_manager.get_group_data(group_id)
+        self.data_manager.del_group_manager(group_id, user_id)
+ #       group_data = self.data_manager.get_group_data(group_id)
 
-        if user_id not in group_data['manager']:
-            yield event.plain_result(f"❌ {user_id}并不是目标群的牛牛管理员")
-        else:
-            self.data_manager.del_group_manager(group_id, user_id)
-            yield event.plain_result(f"✅ 已清除{user_id}在{group_id}的牛牛管理员权限")
+ #       if user_id not in group_data['manager']:
+ #           yield event.plain_result(f"❌ {user_id}并不是目标群的牛牛管理员")
+ #       else:
+ #           self.data_manager.del_group_manager(group_id, user_id)
+ #           yield event.plain_result(f"✅ 已清除{user_id}在{group_id}的牛牛管理员权限")
 
     @filter.command("牛牛帮助", alias={'帮助', '文档', '牛牛文档', '菜单', '牛牛菜单'})
     @filter.event_message_type(EventMessageType.GROUP_MESSAGE)
