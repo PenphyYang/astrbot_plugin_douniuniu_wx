@@ -1,8 +1,8 @@
 import random
 import time
 
-from data.plugins.astrbot_plugin_douniuniu.core.data_manager import DataManager
-from data.plugins.astrbot_plugin_douniuniu.core.utils import random_normal_distribution_int, format_length, get_add_text
+from data.plugins.astrbot_plugin_douniuniu_wx.core.data_manager import DataManager
+from data.plugins.astrbot_plugin_douniuniu_wx.core.utils import random_normal_distribution_int, format_length, get_add_text
 
 
 class DoSelf:
