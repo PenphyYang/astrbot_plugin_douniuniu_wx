@@ -1,10 +1,10 @@
 import random
 import time
 
-from data.plugins.astrbot_plugin_douniuniu.core.data_manager import DataManager
-from data.plugins.astrbot_plugin_douniuniu.core.do_other import DoOther
-from data.plugins.astrbot_plugin_douniuniu.core.do_self import DoSelf
-from data.plugins.astrbot_plugin_douniuniu.core.utils import probabilistic_decision, get_add_text, check_cooldown, \
+from data.plugins.astrbot_plugin_douniuniu_wx.core.data_manager import DataManager
+from data.plugins.astrbot_plugin_douniuniu_wx.core.do_other import DoOther
+from data.plugins.astrbot_plugin_douniuniu_wx.core.do_self import DoSelf
+from data.plugins.astrbot_plugin_douniuniu_wx.core.utils import probabilistic_decision, get_add_text, check_cooldown, \
     timestamp_to_hhmm, format_length
 
 
