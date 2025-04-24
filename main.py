@@ -9,7 +9,7 @@ import astrbot.api.message_components as Comp
 from astrbot.core.message.message_event_result import MessageChain
 from astrbot.core.star.filter.event_message_type import EventMessageType
 from astrbot.core.star.filter.permission import PermissionType
-from data.plugins.astrbot_plugin_douniuniu.core.data_manager import DataManager
+from data.plugins.astrbot_plugin_douniuniu_wx.core.data_manager import DataManager
 from .core.battle import Battle
 from .core.do_other import DoOther
 from .core.do_self import DoSelf
