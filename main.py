@@ -17,7 +17,7 @@ from .core.shop import Shop
 from .core.utils import format_length, is_timestamp_today, random_normal_distribution_int, check_cooldown
 
 
-@register("douniuniu", "laozhu", "培养你的牛牛，然后塔塔开！", "0.0.2")
+@register("douniuniu_wx", "pf", "培养你的牛牛，然后塔塔开！", "1.0.2")
 class DouNiuniuPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
